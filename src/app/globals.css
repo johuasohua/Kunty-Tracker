@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+:root {
+  /* iOS system colors (light) */
+  --ios-blue: #007aff;
+  --ios-green: #34c759;
+  --ios-red: #ff3b30;
+  --ios-orange: #ff9500;
+  --ios-yellow: #ffcc00;
+  --ios-purple: #af52de;
+  --ios-teal: #30b0c7;
+  --ios-pink: #ff2d55;
+  --ios-indigo: #5856d6;
+
+  --ios-bg: #f2f2f7;
+  --ios-bg-secondary: #ffffff;
+  --ios-bg-grouped: #ffffff;
+  --ios-bg-tertiary: #f2f2f7;
+
+  --ios-label: #000000;
+  --ios-label-secondary: rgba(60, 60, 67, 0.6);
+  --ios-label-tertiary: rgba(60, 60, 67, 0.3);
+
+  --ios-separator: rgba(60, 60, 67, 0.29);
+  --ios-fill: rgba(120, 120, 128, 0.2);
+  --ios-fill-secondary: rgba(120, 120, 128, 0.16);
+
+  --background: var(--ios-bg);
+  --foreground: var(--ios-label);
+}
+
+.dark {
+  --ios-bg: #000000;
+  --ios-bg-secondary: #1c1c1e;
+  --ios-bg-grouped: #1c1c1e;
+  --ios-bg-tertiary: #2c2c2e;
+
+  --ios-label: #ffffff;
+  --ios-label-secondary: rgba(235, 235, 245, 0.6);
+  --ios-label-tertiary: rgba(235, 235, 245, 0.3);
+
+  --ios-separator: rgba(84, 84, 88, 0.65);
+  --ios-fill: rgba(120, 120, 128, 0.36);
+  --ios-fill-secondary: rgba(120, 120, 128, 0.32);
+
+  --background: var(--ios-bg);
+  --foreground: var(--ios-label);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --ios-bg: #000000;
+    --ios-bg-secondary: #1c1c1e;
+    --ios-bg-grouped: #1c1c1e;
+    --ios-bg-tertiary: #2c2c2e;
+
+    --ios-label: #ffffff;
+    --ios-label-secondary: rgba(235, 235, 245, 0.6);
+    --ios-label-tertiary: rgba(235, 235, 245, 0.3);
+
+    --ios-separator: rgba(84, 84, 88, 0.65);
+    --ios-fill: rgba(120, 120, 128, 0.36);
+    --ios-fill-secondary: rgba(120, 120, 128, 0.32);
+
+    --background: var(--ios-bg);
+    --foreground: var(--ios-label);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-ios-blue: var(--ios-blue);
+  --color-ios-green: var(--ios-green);
+  --color-ios-red: var(--ios-red);
+  --color-ios-orange: var(--ios-orange);
+  --color-ios-yellow: var(--ios-yellow);
+  --color-ios-purple: var(--ios-purple);
+  --color-ios-teal: var(--ios-teal);
+  --color-ios-pink: var(--ios-pink);
+  --color-ios-indigo: var(--ios-indigo);
+
+  --color-ios-bg: var(--ios-bg);
+  --color-ios-bg-secondary: var(--ios-bg-secondary);
+  --color-ios-bg-grouped: var(--ios-bg-grouped);
+  --color-ios-bg-tertiary: var(--ios-bg-tertiary);
+
+  --color-ios-label: var(--ios-label);
+  --color-ios-label-secondary: var(--ios-label-secondary);
+  --color-ios-label-tertiary: var(--ios-label-tertiary);
+
+  --color-ios-separator: var(--ios-separator);
+  --color-ios-fill: var(--ios-fill);
+  --color-ios-fill-secondary: var(--ios-fill-secondary);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--ios-bg);
+  color: var(--ios-label);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide scrollbars on horizontally-scrolling chip/segmented rows while keeping scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+@supports (padding: max(0px)) {
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+}
