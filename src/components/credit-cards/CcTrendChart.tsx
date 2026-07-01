@@ -10,7 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Card } from "@/components/ui/Card";
-import { formatMoney, monthLabelShort } from "@/lib/format";
+import { formatMoney, formatAxisTick, monthLabelShort } from "@/lib/format";
 import type { CcMonthPoint } from "@/lib/aggregate";
 
 export function CcTrendChart({
@@ -32,7 +32,7 @@ export function CcTrendChart({
       </h2>
       <div className="h-[220px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ left: -20 }}>
+          <AreaChart data={data} margin={{ left: -10 }}>
             <defs>
               <linearGradient id={`cc-fill-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={color} stopOpacity={0.3} />
@@ -41,7 +41,13 @@ export function CcTrendChart({
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--ios-separator)" />
             <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} width={60} />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              width={70}
+              tickFormatter={formatAxisTick}
+            />
             <Tooltip
               formatter={(value) => formatMoney(Number(value))}
               contentStyle={{ borderRadius: 12, border: "none", fontSize: 13 }}

@@ -11,7 +11,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Card } from "@/components/ui/Card";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatAxisTick } from "@/lib/format";
 import type { MortgagePayment } from "@/lib/types";
 
 export function OffsetTrendChart({
@@ -43,7 +43,7 @@ export function OffsetTrendChart({
               axisLine={false}
               tickLine={false}
               width={70}
-              tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+              tickFormatter={formatAxisTick}
             />
             <Tooltip
               formatter={(value) => formatMoney(Number(value))}

@@ -16,6 +16,16 @@ export function formatMoneyCompact(amount: number): string {
   return formatMoney(amount);
 }
 
+const compactNumberFormatter = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+/** For chart axis ticks — avoids duplicate labels that plain toFixed(0) rounding can produce. */
+export function formatAxisTick(value: number): string {
+  return compactNumberFormatter.format(value);
+}
+
 export function monthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }

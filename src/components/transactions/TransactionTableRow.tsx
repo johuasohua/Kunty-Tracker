@@ -29,7 +29,8 @@ export function TransactionTableRow({
 
   const category = categories.find((c) => c.id === transaction.category_id);
   const person = people.find((p) => p.id === transaction.person_id);
-  const sign = category?.treat_as === "offset" ? -1 : transaction.type === "income" ? 1 : -1;
+  const sign =
+    category?.treat_as === "offset" || transaction.type === "income" ? 1 : -1;
 
   function cancel() {
     setDate(transaction.occurred_on);

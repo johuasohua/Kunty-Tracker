@@ -10,7 +10,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Card } from "@/components/ui/Card";
-import { formatMoney, monthLabelShort } from "@/lib/format";
+import { formatMoney, formatAxisTick, monthLabelShort } from "@/lib/format";
 import type { MonthPoint } from "@/lib/aggregate";
 
 export function AnnualTrendChart({ points }: { points: MonthPoint[] }) {
@@ -27,10 +27,16 @@ export function AnnualTrendChart({ points }: { points: MonthPoint[] }) {
       </h2>
       <div className="h-[240px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ left: -20 }}>
+          <LineChart data={data} margin={{ left: -10 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--ios-separator)" />
             <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} width={60} />
+            <YAxis
+              tick={{ fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              width={70}
+              tickFormatter={formatAxisTick}
+            />
             <Tooltip
               formatter={(value) => formatMoney(Number(value))}
               contentStyle={{ borderRadius: 12, border: "none", fontSize: 13 }}
