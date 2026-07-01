@@ -5,6 +5,7 @@ import {
   PiggyBank,
   Repeat,
   Settings,
+  CreditCard,
 } from "lucide-react";
 
 export interface NavItem {
@@ -23,6 +24,7 @@ export const primaryNavItems: NavItem[] = [
 
 // Only surfaced in the desktop sidebar and the mobile "More" tab.
 export const secondaryNavItems: NavItem[] = [
+  { href: "/credit-cards", label: "Credit Cards", icon: CreditCard },
   { href: "/recurring", label: "Recurring Bills", icon: Repeat },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

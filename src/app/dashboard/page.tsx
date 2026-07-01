@@ -9,6 +9,7 @@ import { useProfile } from "@/lib/profile-context";
 import { useDashboardData } from "@/lib/queries/dashboard-data";
 import {
   buildMonthlySeries,
+  buildCcSeries,
   breakdownByCategory,
   breakdownByCategoryForYear,
   computeInsights,
@@ -23,17 +24,24 @@ import { AccountBreakdownTable } from "@/components/dashboard/AccountBreakdownTa
 import { InsightsList } from "@/components/dashboard/InsightsList";
 import { AnnualTrendChart } from "@/components/dashboard/AnnualTrendChart";
 import { AnnualCategoryList } from "@/components/dashboard/AnnualCategoryList";
+import { useCcData } from "@/lib/queries/cc";
+import { CcSummaryCard } from "@/components/credit-cards/CcSummaryCard";
+import { MarkPaidSheet } from "@/components/credit-cards/MarkPaidSheet";
+import type { Person } from "@/lib/types";
 
 export default function DashboardPage() {
   const { categories, loading: categoriesLoading } = useCategories();
   const { people } = useProfile();
   const { transactions, seed, loading: dataLoading } = useDashboardData();
+  const { openingBalances, payments: ccPayments, loading: ccLoading, refresh: refreshCc } =
+    useCcData();
+  const [markPaidPerson, setMarkPaidPerson] = useState<Person | null>(null);
 
   const [view, setView] = useState<"monthly" | "annual">("monthly");
   const [month, setMonth] = useState(() => new Date());
   const [year, setYear] = useState(() => new Date().getFullYear());
 
-  const loading = categoriesLoading || dataLoading;
+  const loading = categoriesLoading || dataLoading || ccLoading;
 
   const series = useMemo(
     () => buildMonthlySeries(transactions, categories, seed, month),
@@ -75,6 +83,14 @@ export default function DashboardPage() {
   const yearIncome = yearSeries.reduce((sum, p) => sum + p.totalIncome, 0);
   const yearExpense = yearSeries.reduce((sum, p) => sum + p.totalExpense, 0);
 
+  const ccSeriesByPerson = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof buildCcSeries>>();
+    for (const p of people) {
+      map.set(p.id, buildCcSeries(transactions, ccPayments, openingBalances, p.id, month));
+    }
+    return map;
+  }, [people, transactions, ccPayments, openingBalances, month]);
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -108,6 +124,23 @@ export default function DashboardPage() {
           <div className="mb-6">
             <BalanceCard point={currentPoint} />
           </div>
+
+          {people.length > 0 && (
+            <div className="mb-6 grid gap-4 md:grid-cols-2">
+              {people.map((p) => {
+                const s = ccSeriesByPerson.get(p.id) ?? [];
+                const point = s.find((pt) => pt.key === monthKey(month)) ?? null;
+                return (
+                  <CcSummaryCard
+                    key={p.id}
+                    person={p}
+                    point={point}
+                    onMarkPaid={() => setMarkPaidPerson(p)}
+                  />
+                );
+              })}
+            </div>
+          )}
 
           <InsightsList insights={insights} />
 
@@ -164,6 +197,12 @@ export default function DashboardPage() {
           <AnnualCategoryList totals={annualTotals} year={year} />
         </>
       )}
+
+      <MarkPaidSheet
+        person={markPaidPerson}
+        onClose={() => setMarkPaidPerson(null)}
+        onSaved={refreshCc}
+      />
     </div>
   );
 }

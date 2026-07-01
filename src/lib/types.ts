@@ -88,3 +88,9 @@ export interface CcPayment {
   note: string | null;
   created_at: string;
 }
+
+export interface OpeningCcBalance {
+  person_id: string;
+  as_of_month: string;
+  balance: number;
+}

@@ -1,4 +1,4 @@
-import type { Category } from "@/lib/types";
+import type { Category, CcPayment, OpeningCcBalance } from "@/lib/types";
 import type {
   LightTransaction,
   OpeningBalanceSeed,
@@ -215,4 +215,87 @@ export function breakdownByCategoryForYear(
   }
 
   return Array.from(byCategory.values()).sort((a, b) => b.total - a.total);
+}
+
+export interface CcMonthPoint {
+  key: string;
+  date: Date;
+  currentSpend: number; // credit-card spend this month
+  debitSpend: number; // debit spend this month
+  paidOff: number; // amount actually paid off the card this month
+  carryOver: number; // CC balance carried into this month
+  closing: number; // CC balance carried out of this month
+  cashFlowExpense: number; // debitSpend + paidOff — the real cash that left the bank
+}
+
+/**
+ * Per-person credit card balance trend. Mirrors the "Balances" sheet:
+ * current month CC spend and the amount actually paid off are tracked
+ * separately, so paying down a card isn't double-counted against raw
+ * card spend. carryOver/closing form a running balance seeded by
+ * opening_cc_balances.
+ */
+export function buildCcSeries(
+  transactions: LightTransaction[],
+  ccPayments: CcPayment[],
+  openingBalances: OpeningCcBalance[],
+  personId: string,
+  endMonth: Date
+): CcMonthPoint[] {
+  const seed = openingBalances.find((b) => b.person_id === personId) ?? null;
+  const personTransactions = transactions.filter((t) => t.person_id === personId);
+
+  const spendByMonth = new Map<string, { credit: number; debit: number }>();
+  for (const t of personTransactions) {
+    if (t.type !== "expense") continue;
+    const key = monthKey(new Date(t.occurred_on));
+    const bucket = spendByMonth.get(key) ?? { credit: 0, debit: 0 };
+    if (t.payment_method === "credit") bucket.credit += t.amount;
+    else bucket.debit += t.amount;
+    spendByMonth.set(key, bucket);
+  }
+
+  const paidByMonth = new Map<string, number>();
+  for (const p of ccPayments) {
+    if (p.person_id !== personId) continue;
+    const key = monthKey(new Date(p.month));
+    paidByMonth.set(key, (paidByMonth.get(key) ?? 0) + p.amount_paid);
+  }
+
+  let startDate: Date;
+  if (seed) {
+    startDate = new Date(seed.as_of_month);
+  } else if (personTransactions.length > 0) {
+    startDate = new Date(personTransactions[0].occurred_on);
+  } else {
+    startDate = endMonth;
+  }
+  startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const end = new Date(endMonth.getFullYear(), endMonth.getMonth(), 1);
+
+  const series: CcMonthPoint[] = [];
+  let running = seed?.balance ?? 0;
+  const cursor = new Date(startDate);
+
+  while (cursor <= end) {
+    const key = monthKey(cursor);
+    const spend = spendByMonth.get(key) ?? { credit: 0, debit: 0 };
+    const paidOff = paidByMonth.get(key) ?? 0;
+    const carryOver = running;
+    const closing = carryOver + spend.credit - paidOff;
+    series.push({
+      key,
+      date: new Date(cursor),
+      currentSpend: spend.credit,
+      debitSpend: spend.debit,
+      paidOff,
+      carryOver,
+      closing,
+      cashFlowExpense: spend.debit + paidOff,
+    });
+    running = closing;
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return series;
 }

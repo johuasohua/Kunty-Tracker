@@ -8,6 +8,9 @@ export default function MorePage() {
     <div className="px-4 md:px-0">
       <PageHeader title="More" />
       <GroupedSection>
+        <Link href="/credit-cards">
+          <ListRow label="Credit Cards" chevron />
+        </Link>
         <Link href="/recurring">
           <ListRow label="Recurring Bills" chevron />
         </Link>
