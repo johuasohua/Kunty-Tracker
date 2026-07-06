@@ -178,7 +178,6 @@ export function buildCategorySpendCards(
     if (cat.treat_as === "income") continue;
     const spark = months.map((m) => totalsByMonth.get(monthKey(m))?.get(cat.id) ?? 0);
     const current = totalsByMonth.get(currentKey)?.get(cat.id) ?? 0;
-    if (current <= 0) continue; // mirror the donut: only categories with spend this month
     const previous = totalsByMonth.get(previousKey)?.get(cat.id) ?? 0;
     const delta = previous > 0 ? (current - previous) / previous : null;
     cards.push({ category: cat, current, previous, delta, spark });

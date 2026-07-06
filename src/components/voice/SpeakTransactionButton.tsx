@@ -21,7 +21,7 @@ export function SpeakTransactionButton({ className }: { className?: string }) {
       )}
     >
       <Mic size={18} />
-      Speak Transaction
+      Speak
     </button>
   );
 }
