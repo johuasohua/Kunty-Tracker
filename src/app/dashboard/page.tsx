@@ -13,6 +13,7 @@ import {
   buildCcSeries,
   breakdownByCategory,
   breakdownByCategoryForYear,
+  buildCategorySpendCards,
   computeInsights,
   computeBudgetProgress,
   computeBudgetProgressForYear,
@@ -22,8 +23,7 @@ import {
 import { monthKey, formatMoney } from "@/lib/format";
 import { MonthSelector } from "@/components/dashboard/MonthSelector";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
-import { CategoryDonut } from "@/components/dashboard/CategoryDonut";
-import { CategoryMoMList } from "@/components/dashboard/CategoryMoMList";
+import { CategorySpendCards } from "@/components/dashboard/CategorySpendCards";
 import { AccountBreakdownTable } from "@/components/dashboard/AccountBreakdownTable";
 import { InsightsList } from "@/components/dashboard/InsightsList";
 import { AnnualTrendChart } from "@/components/dashboard/AnnualTrendChart";
@@ -69,10 +69,10 @@ export default function DashboardPage() {
     [transactions, categories, month]
   );
 
-  const previousBreakdown = useMemo(() => {
-    const previousMonth = new Date(month.getFullYear(), month.getMonth() - 1, 1);
-    return breakdownByCategory(transactions, categories, previousMonth);
-  }, [transactions, categories, month]);
+  const categoryCards = useMemo(
+    () => buildCategorySpendCards(transactions, categories, month),
+    [transactions, categories, month]
+  );
 
   const insights = useMemo(
     () => computeInsights(transactions, categories, month),
@@ -170,8 +170,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <InsightsList insights={insights} />
-
           {budgetEntries.length > 0 && (
             <div className="mb-6">
               <div className="mb-2 flex items-center justify-between px-4 md:px-0">
@@ -190,24 +188,11 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="mb-6 grid gap-4 md:grid-cols-2">
-            <Card className="p-4">
-              <h2 className="mb-2 text-[15px] font-semibold text-ios-label">
-                Spend Breakdown
-              </h2>
-              <CategoryDonut
-                breakdown={currentBreakdown}
-                total={currentPoint?.totalExpense ?? 0}
-              />
-            </Card>
-            <CategoryMoMList
-              current={currentBreakdown}
-              previous={previousBreakdown}
-              monthKey={monthKey(month)}
-            />
-          </div>
+          <CategorySpendCards cards={categoryCards} monthKey={monthKey(month)} />
 
           <AccountBreakdownTable breakdown={currentBreakdown} people={people} />
+
+          <InsightsList insights={insights} monthKey={monthKey(month)} />
         </>
       ) : (
         <>

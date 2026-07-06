@@ -137,24 +137,100 @@ export function breakdownByCategory(
   return Array.from(byCategory.values()).sort((a, b) => b.total - a.total);
 }
 
+export interface CategorySpendCard {
+  category: Category;
+  current: number; // this-month spend
+  previous: number; // last-month spend
+  delta: number | null; // fraction vs last month; null when last month was 0
+  spark: number[]; // trailing monthly totals, oldest → newest (current month last)
+}
+
+/**
+ * One card per expense category with spend this month: the current and
+ * previous month totals (for a MoM %), plus a trailing sparkline series.
+ * Replaces the single spend donut with a per-category grid.
+ */
+export function buildCategorySpendCards(
+  transactions: LightTransaction[],
+  categories: Category[],
+  month: Date,
+  monthsBack = 6
+): CategorySpendCard[] {
+  const months: Date[] = [];
+  for (let i = monthsBack - 1; i >= 0; i--) {
+    months.push(new Date(month.getFullYear(), month.getMonth() - i, 1));
+  }
+
+  // Category → total, per trailing month.
+  const totalsByMonth = new Map<string, Map<string, number>>();
+  for (const m of months) {
+    const map = new Map(
+      breakdownByCategory(transactions, categories, m).map((b) => [b.category.id, b.total])
+    );
+    totalsByMonth.set(monthKey(m), map);
+  }
+
+  const currentKey = monthKey(month);
+  const previousKey = monthKey(new Date(month.getFullYear(), month.getMonth() - 1, 1));
+
+  const cards: CategorySpendCard[] = [];
+  for (const cat of categories) {
+    if (cat.treat_as === "income") continue;
+    const spark = months.map((m) => totalsByMonth.get(monthKey(m))?.get(cat.id) ?? 0);
+    const current = totalsByMonth.get(currentKey)?.get(cat.id) ?? 0;
+    if (current <= 0) continue; // mirror the donut: only categories with spend this month
+    const previous = totalsByMonth.get(previousKey)?.get(cat.id) ?? 0;
+    const delta = previous > 0 ? (current - previous) / previous : null;
+    cards.push({ category: cat, current, previous, delta, spark });
+  }
+
+  return cards.sort((a, b) => b.current - a.current);
+}
+
+/**
+ * Days spanned by the transaction history (earliest → latest occurred_on).
+ * Used to gate insights until there's a meaningful window of data.
+ */
+export function transactionSpanDays(transactions: LightTransaction[]): number {
+  if (transactions.length === 0) return 0;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const t of transactions) {
+    const time = new Date(t.occurred_on).getTime();
+    if (time < min) min = time;
+    if (time > max) max = time;
+  }
+  return Math.floor((max - min) / (1000 * 60 * 60 * 24));
+}
+
 export interface CategoryInsight {
   categoryId: string;
   categoryName: string;
+  categoryIcon: string | null;
+  categoryColor: string;
   currentTotal: number;
   averageTotal: number;
   percentDelta: number; // e.g. 0.32 = 32% above average
 }
 
 /**
- * Flags expense categories trending meaningfully above their trailing
- * 3-month average. Simple rule-based comparison, not real "AI".
+ * Flags expense categories trending meaningfully above their historical
+ * average. Simple rule-based comparison, not real "AI".
+ *
+ * Only activates once there are at least `minHistoryDays` days of tracked
+ * transactions — before that the sample is too thin to be meaningful. The
+ * baseline average is built from *historical* months only (the trailing
+ * months before the current one), never the month being evaluated.
  */
 export function computeInsights(
   transactions: LightTransaction[],
   categories: Category[],
   month: Date,
-  thresholdPct = 0.2
+  thresholdPct = 0.2,
+  minHistoryDays = 30
 ): CategoryInsight[] {
+  if (transactionSpanDays(transactions) < minHistoryDays) return [];
+
   const insights: CategoryInsight[] = [];
 
   const trailingMonths: Date[] = [1, 2, 3].map(
@@ -167,6 +243,8 @@ export function computeInsights(
     if (entry.category.treat_as !== "expense") continue;
     if (entry.total <= 0) continue;
 
+    // Historical (past-month) totals only — the current month is excluded
+    // so it's compared against its own baseline, not against itself.
     const trailingTotals = trailingMonths.map(
       (m) =>
         breakdownByCategory(transactions, categories, m).find(
@@ -176,8 +254,9 @@ export function computeInsights(
     const withData = trailingTotals.filter((v) => v > 0);
     if (withData.length === 0) continue;
 
-    const average =
-      trailingTotals.reduce((a, b) => a + b, 0) / trailingTotals.length;
+    // Average across months that actually have history, so a category with
+    // one month of prior data isn't diluted by leading zeros.
+    const average = withData.reduce((a, b) => a + b, 0) / withData.length;
     if (average <= 0) continue;
 
     const percentDelta = (entry.total - average) / average;
@@ -185,6 +264,8 @@ export function computeInsights(
       insights.push({
         categoryId: entry.category.id,
         categoryName: entry.category.name,
+        categoryIcon: entry.category.icon,
+        categoryColor: entry.category.color,
         currentTotal: entry.total,
         averageTotal: average,
         percentDelta,
