@@ -2,6 +2,12 @@ import { Card } from "@/components/ui/Card";
 import { formatMoney, monthLabel } from "@/lib/format";
 import type { CcMonthPoint } from "@/lib/aggregate";
 
+function formatDate(dateStr?: string) {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export function CcHistoryTable({ points }: { points: CcMonthPoint[] }) {
   const rows = [...points].reverse();
 
@@ -14,6 +20,7 @@ export function CcHistoryTable({ points }: { points: CcMonthPoint[] }) {
             <th className="px-3 py-2 text-right">Carry Over</th>
             <th className="px-3 py-2 text-right">CC Spend</th>
             <th className="px-3 py-2 text-right">Paid Off</th>
+            <th className="px-3 py-2">Payment Date</th>
             <th className="px-3 py-2 text-right">Balance</th>
             <th className="px-3 py-2 text-right">Cash Expense</th>
           </tr>
@@ -32,6 +39,9 @@ export function CcHistoryTable({ points }: { points: CcMonthPoint[] }) {
               </td>
               <td className="px-3 py-2 text-right text-ios-green">
                 {formatMoney(p.paidOff)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-ios-label-secondary">
+                {formatDate(p.paymentDate)}
               </td>
               <td className="px-3 py-2 text-right font-medium text-ios-label">
                 {formatMoney(p.closing)}

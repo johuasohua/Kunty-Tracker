@@ -89,6 +89,7 @@ export interface CcPayment {
   month: string;
   amount_paid: number;
   note: string | null;
+  payment_date: string;
   created_at: string;
 }
 

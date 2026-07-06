@@ -477,6 +477,7 @@ export interface CcMonthPoint {
   currentSpend: number; // credit-card spend this month
   debitSpend: number; // debit spend this month
   paidOff: number; // amount actually paid off the card this month
+  paymentDate?: string; // actual date payment was made (YYYY-MM-DD)
   carryOver: number; // CC balance carried into this month
   closing: number; // CC balance carried out of this month
   cashFlowExpense: number; // debitSpend + paidOff — the real cash that left the bank
@@ -510,10 +511,14 @@ export function buildCcSeries(
   }
 
   const paidByMonth = new Map<string, number>();
+  const paymentDateByMonth = new Map<string, string>();
   for (const p of ccPayments) {
     if (p.person_id !== personId) continue;
     const key = monthKey(new Date(p.month));
     paidByMonth.set(key, (paidByMonth.get(key) ?? 0) + p.amount_paid);
+    if (p.payment_date) {
+      paymentDateByMonth.set(key, p.payment_date);
+    }
   }
 
   let startDate: Date;
@@ -535,6 +540,7 @@ export function buildCcSeries(
     const key = monthKey(cursor);
     const spend = spendByMonth.get(key) ?? { credit: 0, debit: 0 };
     const paidOff = paidByMonth.get(key) ?? 0;
+    const paymentDate = paymentDateByMonth.get(key);
     const carryOver = running;
     const closing = carryOver + spend.credit - paidOff;
     series.push({
@@ -543,6 +549,7 @@ export function buildCcSeries(
       currentSpend: spend.credit,
       debitSpend: spend.debit,
       paidOff,
+      paymentDate,
       carryOver,
       closing,
       cashFlowExpense: spend.debit + paidOff,

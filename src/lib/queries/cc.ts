@@ -37,6 +37,7 @@ export async function upsertCcPayment(input: {
   person_id: string;
   month: string; // first-of-month
   amount_paid: number;
+  payment_date: string;
   note?: string | null;
 }) {
   const supabase = getSupabaseClient();

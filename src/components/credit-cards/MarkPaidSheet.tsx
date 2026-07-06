@@ -12,6 +12,11 @@ function currentMonthISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function MarkPaidSheet({
   person,
   existingAmount,
@@ -24,6 +29,7 @@ export function MarkPaidSheet({
   onSaved: () => void;
 }) {
   const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -31,6 +37,7 @@ export function MarkPaidSheet({
   useEffect(() => {
     if (person) {
       setAmount(existingAmount ? String(existingAmount) : "");
+      setPaymentDate(todayISO());
       setNote("");
       setError("");
     }
@@ -44,6 +51,10 @@ export function MarkPaidSheet({
       setError("Enter a valid amount");
       return;
     }
+    if (!paymentDate) {
+      setError("Select a payment date");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -51,6 +62,7 @@ export function MarkPaidSheet({
         person_id: person.id,
         month: currentMonthISO(),
         amount_paid: parsed,
+        payment_date: paymentDate,
         note: note || null,
       });
       onSaved();
@@ -86,6 +98,17 @@ export function MarkPaidSheet({
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0.00"
             className="w-full rounded-xl border border-ios-separator bg-ios-bg px-4 py-3 text-[20px] font-semibold text-ios-label outline-none focus:border-ios-blue"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[13px] font-medium text-ios-label-secondary">
+            Date of Payment
+          </label>
+          <input
+            type="date"
+            value={paymentDate}
+            onChange={(e) => setPaymentDate(e.target.value)}
+            className="w-full rounded-xl border border-ios-separator bg-ios-bg px-4 py-3 text-[15px] text-ios-label outline-none focus:border-ios-blue"
           />
         </div>
         <div>
