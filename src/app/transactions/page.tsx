@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, SlidersHorizontal } from "lucide-react";
+import { Plus, SlidersHorizontal, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useCategories } from "@/lib/queries/categories";
@@ -49,6 +49,29 @@ function TransactionsPageContent() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [search, setSearch] = useState("");
+
+  // Free-text search over the loaded rows — matches note, category, person,
+  // payment method and amount. Runs on top of the server-side filters.
+  const visibleTransactions = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return transactions;
+    return transactions.filter((t) => {
+      const category = categories.find((c) => c.id === t.category_id);
+      const person = people.find((p) => p.id === t.person_id);
+      const haystack = [
+        t.note ?? "",
+        category?.name ?? "",
+        person?.name ?? "",
+        t.payment_method,
+        t.type,
+        String(t.amount),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [transactions, search, categories, people]);
 
   const activeFilterCount =
     (filters.categoryIds?.length ?? 0) +
@@ -91,6 +114,28 @@ function TransactionsPageContent() {
         <SpeakTransactionButton />
       </div>
 
+      <div className="relative mb-4">
+        <Search
+          size={16}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ios-label-secondary"
+        />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search transactions"
+          className="w-full rounded-xl border border-ios-separator bg-ios-bg-secondary py-2.5 pl-9 pr-9 text-[15px] text-ios-label outline-none focus:border-ios-blue"
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-ios-fill text-ios-label-secondary"
+          >
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
       {/* Desktop: always-visible full entry form */}
       <div className="mb-6 hidden md:block">
         <DesktopEntryForm onSaved={refresh} />
@@ -105,12 +150,17 @@ function TransactionsPageContent() {
           title="No transactions yet"
           subtitle="Add your first expense with the + button, or use the mic to log one by voice."
         />
+      ) : visibleTransactions.length === 0 ? (
+        <EmptyState
+          title="No matches"
+          subtitle={`Nothing matches “${search}”. Try a different search or clear it.`}
+        />
       ) : (
         <>
           {/* Mobile: grouped list */}
           <div className="md:hidden">
             <TransactionMobileList
-              transactions={transactions}
+              transactions={visibleTransactions}
               categories={categories}
               people={people}
               onSelect={setEditing}
@@ -131,7 +181,7 @@ function TransactionsPageContent() {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((t) => (
+                {visibleTransactions.map((t) => (
                   <TransactionTableRow
                     key={t.id}
                     transaction={t}

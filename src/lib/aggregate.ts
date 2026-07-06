@@ -276,6 +276,159 @@ export function computeInsights(
   return insights.sort((a, b) => b.percentDelta - a.percentDelta);
 }
 
+export type ReviewSeverity = "warn" | "info" | "good";
+
+export interface ReviewItem {
+  id: string;
+  kind: "spike" | "over-budget" | "under-budget" | "anomaly" | "cashflow";
+  categoryId?: string;
+  title: string;
+  detail: string;
+  recommendation?: string;
+  severity: ReviewSeverity;
+}
+
+export interface MonthlyReview {
+  totalIncome: number;
+  totalExpense: number;
+  net: number;
+  previousExpense: number | null;
+  expenseDelta: number | null; // fraction change vs previous month
+  items: ReviewItem[];
+}
+
+/**
+ * A plain-language monthly review: headline cash-flow, spending spikes vs
+ * history, budget over/under variance, a standout large charge, and simple
+ * recommendations. Built entirely from the existing pure aggregators so it
+ * stays testable and consistent with the rest of the dashboard.
+ */
+export function computeMonthlyReview(
+  transactions: LightTransaction[],
+  categories: Category[],
+  budgets: Budget[],
+  people: Person[],
+  month: Date
+): MonthlyReview {
+  const key = monthKey(month);
+  const previousMonth = new Date(month.getFullYear(), month.getMonth() - 1, 1);
+
+  const currentBreakdown = breakdownByCategory(transactions, categories, month);
+  const totalExpense = currentBreakdown.reduce((sum, b) => sum + b.total, 0);
+  const totalIncome = transactions
+    .filter((t) => t.type === "income" && monthKey(new Date(t.occurred_on)) === key)
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const previousBreakdown = breakdownByCategory(transactions, categories, previousMonth);
+  const previousExpense = previousBreakdown.reduce((sum, b) => sum + b.total, 0);
+  const hasPrevious = previousBreakdown.some((b) => b.total !== 0);
+  const expenseDelta =
+    hasPrevious && previousExpense > 0
+      ? (totalExpense - previousExpense) / previousExpense
+      : null;
+
+  const items: ReviewItem[] = [];
+
+  // Cash-flow warning: spent more than earned.
+  if (totalIncome > 0 && totalExpense > totalIncome) {
+    items.push({
+      id: "cashflow",
+      kind: "cashflow",
+      title: "Spent more than you earned",
+      detail: `Expenses ${money(totalExpense)} exceeded income ${money(totalIncome)} by ${money(
+        totalExpense - totalIncome
+      )}.`,
+      recommendation: "Trim the largest categories below, or move funds from savings.",
+      severity: "warn",
+    });
+  }
+
+  // Spending spikes vs historical average (already gated to ≥30 days of data).
+  const insights = computeInsights(transactions, categories, month);
+  for (const insight of insights.slice(0, 4)) {
+    items.push({
+      id: `spike-${insight.categoryId}`,
+      kind: "spike",
+      categoryId: insight.categoryId,
+      title: `${insight.categoryName} up ${Math.round(insight.percentDelta * 100)}% vs average`,
+      detail: `${money(insight.currentTotal)} this month vs ${money(insight.averageTotal)} average.`,
+      recommendation: `Review ${insight.categoryName} transactions this month.`,
+      severity: "warn",
+    });
+  }
+
+  // Budget variance.
+  const budgetEntries = computeBudgetProgress(budgets, categories, transactions, people, month);
+  let overBudgetCount = 0;
+  for (const entry of budgetEntries) {
+    if (entry.totalBudget <= 0) continue;
+    const ratio = entry.totalActual / entry.totalBudget;
+    if (ratio > 1.05) {
+      overBudgetCount += 1;
+      items.push({
+        id: `over-${entry.category.id}`,
+        kind: "over-budget",
+        categoryId: entry.category.id,
+        title: `${entry.category.name} over budget`,
+        detail: `${money(entry.totalActual)} spent of ${money(entry.totalBudget)} (${Math.round(
+          ratio * 100
+        )}%).`,
+        recommendation: "Cut back next month, or raise the budget if this is the new normal.",
+        severity: "warn",
+      });
+    }
+  }
+  // Positive note when budgets exist and none are blown.
+  if (budgetEntries.length > 0 && overBudgetCount === 0) {
+    items.push({
+      id: "budgets-on-track",
+      kind: "under-budget",
+      title: "All budgets on track",
+      detail: `You're within every budget you've set this month.`,
+      severity: "good",
+    });
+  }
+
+  // Standout large charge (a possible anomaly worth a glance).
+  const monthExpenses = transactions.filter(
+    (t) => t.type === "expense" && monthKey(new Date(t.occurred_on)) === key
+  );
+  if (monthExpenses.length > 0 && totalExpense > 0) {
+    const largest = monthExpenses.reduce((a, b) => (b.amount > a.amount ? b : a));
+    const share = largest.amount / totalExpense;
+    if (largest.amount >= 500 && share >= 0.35) {
+      const cat = categories.find((c) => c.id === largest.category_id);
+      items.push({
+        id: `anomaly-${largest.id}`,
+        kind: "anomaly",
+        categoryId: largest.category_id,
+        title: `Large ${cat?.name ?? "single"} charge`,
+        detail: `${money(largest.amount)} on ${largest.occurred_on} was ${Math.round(
+          share * 100
+        )}% of the month's spending.`,
+        recommendation: "Make sure this one-off isn't skewing your monthly view.",
+        severity: "info",
+      });
+    }
+  }
+
+  return {
+    totalIncome,
+    totalExpense,
+    net: totalIncome - totalExpense,
+    previousExpense: hasPrevious ? previousExpense : null,
+    expenseDelta,
+    items,
+  };
+}
+
+function money(n: number): string {
+  return `AED ${new Intl.NumberFormat("en-AE", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(Math.round(n))}`;
+}
+
 export interface AnnualCategoryTotal {
   category: Category;
   total: number;
@@ -478,6 +631,65 @@ export function computeBudgetProgress(
   }
 
   return entries.sort((a, b) => b.totalActual / b.totalBudget - a.totalActual / a.totalBudget);
+}
+
+export interface BudgetSuggestion {
+  category: Category;
+  monthlyAverage: number; // rounded, ready to use as a budget
+  rawAverage: number; // unrounded trailing average
+  monthsCounted: number; // trailing months with any spend
+}
+
+/** Round a spend average to a tidy budget figure. */
+function roundBudget(n: number): number {
+  if (n >= 1000) return Math.round(n / 100) * 100;
+  if (n >= 200) return Math.round(n / 50) * 50;
+  return Math.round(n / 10) * 10;
+}
+
+/**
+ * Suggested monthly budgets derived from historical spend (the data imported
+ * from the household's Excel tracker). For each expense category, averages the
+ * trailing `monthsBack` completed months *before* the given month (the current,
+ * possibly-partial month is excluded) over the months that actually had spend,
+ * then rounds to a tidy figure. Categories with no history are omitted.
+ */
+export function suggestBudgetsFromHistory(
+  transactions: LightTransaction[],
+  categories: Category[],
+  month: Date,
+  monthsBack = 6
+): BudgetSuggestion[] {
+  const suggestions: BudgetSuggestion[] = [];
+
+  const trailingMonths: Date[] = [];
+  for (let n = 1; n <= monthsBack; n++) {
+    trailingMonths.push(new Date(month.getFullYear(), month.getMonth() - n, 1));
+  }
+
+  const perMonthBreakdowns = trailingMonths.map((m) =>
+    breakdownByCategory(transactions, categories, m)
+  );
+
+  for (const category of categories) {
+    if (category.treat_as !== "expense") continue;
+
+    const totals = perMonthBreakdowns.map(
+      (bd) => bd.find((b) => b.category.id === category.id)?.total ?? 0
+    );
+    const withSpend = totals.filter((v) => v > 0);
+    if (withSpend.length === 0) continue;
+
+    const rawAverage = withSpend.reduce((a, b) => a + b, 0) / withSpend.length;
+    suggestions.push({
+      category,
+      rawAverage,
+      monthlyAverage: roundBudget(rawAverage),
+      monthsCounted: withSpend.length,
+    });
+  }
+
+  return suggestions.sort((a, b) => b.rawAverage - a.rawAverage);
 }
 
 export function intervalMonthsForFrequency(frequency: RecurringFrequency): number {

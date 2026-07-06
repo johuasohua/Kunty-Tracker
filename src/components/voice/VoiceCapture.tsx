@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Mic, Square, Keyboard } from "lucide-react";
 import { useSpeechRecognition } from "@/lib/voice/useSpeechRecognition";
-import { parseVoiceInput, type ParseContext } from "@/lib/voice/parse";
+import { parseVoiceSession, type ParseContext } from "@/lib/voice/parse";
 
 /**
  * Capture screen: hold-to-talk mic with a live, editable transcript. Falls
@@ -30,10 +30,10 @@ export function VoiceCapture({
     [text, speech.interim]
   );
 
-  const detectedCount = useMemo(
-    () => parseVoiceInput(liveText, ctx).length,
-    [liveText, ctx]
-  );
+  const detectedCount = useMemo(() => {
+    const r = parseVoiceSession(liveText, ctx);
+    return r.transactions.length + r.budgetCommands.length;
+  }, [liveText, ctx]);
 
   function toggleMic() {
     if (speech.listening) speech.stop();
@@ -107,7 +107,7 @@ export function VoiceCapture({
       >
         {detectedCount === 0
           ? "Review"
-          : `Review ${detectedCount} transaction${detectedCount === 1 ? "" : "s"}`}
+          : `Review ${detectedCount} item${detectedCount === 1 ? "" : "s"}`}
       </button>
     </div>
   );

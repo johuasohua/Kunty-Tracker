@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useCategories } from "@/lib/queries/categories";
@@ -11,6 +11,7 @@ import { useDashboardData } from "@/lib/queries/dashboard-data";
 import { computeBudgetProgress, computeBudgetProgressForYear } from "@/lib/aggregate";
 import { BudgetCard } from "@/components/budgets/BudgetCard";
 import { AddEditBudgetSheet } from "@/components/budgets/AddEditBudgetSheet";
+import { SuggestBudgetsSheet } from "@/components/budgets/SuggestBudgetsSheet";
 import { MonthSelector } from "@/components/dashboard/MonthSelector";
 
 export default function BudgetsPage() {
@@ -20,6 +21,7 @@ export default function BudgetsPage() {
   const { transactions, loading: txLoading } = useDashboardData();
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [view, setView] = useState<"monthly" | "annual">("monthly");
   const [month, setMonth] = useState(() => new Date());
@@ -61,13 +63,23 @@ export default function BudgetsPage() {
       <PageHeader
         title="Budgets"
         action={
-          <button
-            onClick={openAdd}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-ios-blue text-white"
-            aria-label="Add budget"
-          >
-            <Plus size={18} />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSuggestOpen(true)}
+              className="flex h-9 items-center gap-1.5 rounded-full bg-ios-fill px-3 text-[13px] font-semibold text-ios-blue"
+              aria-label="Suggest budgets from history"
+            >
+              <Sparkles size={15} />
+              Suggest
+            </button>
+            <button
+              onClick={openAdd}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-ios-blue text-white"
+              aria-label="Add budget"
+            >
+              <Plus size={18} />
+            </button>
+          </div>
         }
       />
 
@@ -110,6 +122,16 @@ export default function BudgetsPage() {
         people={people}
         budgets={budgets}
         editingCategoryId={editingCategoryId}
+      />
+
+      <SuggestBudgetsSheet
+        open={suggestOpen}
+        onClose={() => setSuggestOpen(false)}
+        onSaved={refresh}
+        transactions={transactions}
+        categories={categories}
+        budgets={budgets}
+        month={month}
       />
     </div>
   );

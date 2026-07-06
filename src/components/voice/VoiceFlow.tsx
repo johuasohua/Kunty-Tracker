@@ -4,7 +4,12 @@ import { useMemo, useState } from "react";
 import { Check } from "lucide-react";
 import { useCategories } from "@/lib/queries/categories";
 import { useProfile } from "@/lib/profile-context";
-import { parseVoiceInput, type ParseContext, type VoiceDraft } from "@/lib/voice/parse";
+import {
+  parseVoiceSession,
+  type BudgetCommand,
+  type ParseContext,
+  type VoiceDraft,
+} from "@/lib/voice/parse";
 import { VoiceCapture } from "./VoiceCapture";
 import { VoiceReview } from "./VoiceReview";
 
@@ -21,6 +26,7 @@ export function VoiceFlow({ onClose }: { onClose: () => void }) {
 
   const [phase, setPhase] = useState<Phase>("capture");
   const [drafts, setDrafts] = useState<VoiceDraft[]>([]);
+  const [budgetCommands, setBudgetCommands] = useState<BudgetCommand[]>([]);
   const [savedCount, setSavedCount] = useState(0);
 
   const ctx: ParseContext = useMemo(
@@ -34,7 +40,9 @@ export function VoiceFlow({ onClose }: { onClose: () => void }) {
   );
 
   function handleCaptured(text: string) {
-    setDrafts(parseVoiceInput(text, ctx));
+    const { transactions, budgetCommands: budgets } = parseVoiceSession(text, ctx);
+    setDrafts(transactions);
+    setBudgetCommands(budgets);
     setPhase("review");
   }
 
@@ -50,6 +58,7 @@ export function VoiceFlow({ onClose }: { onClose: () => void }) {
       {phase === "review" && (
         <VoiceReview
           initialDrafts={drafts}
+          initialBudgets={budgetCommands}
           ctx={ctx}
           categories={categories}
           people={people}
@@ -65,12 +74,13 @@ export function VoiceFlow({ onClose }: { onClose: () => void }) {
             <Check size={36} />
           </div>
           <p className="text-[17px] font-semibold text-ios-label">
-            Saved {savedCount} transaction{savedCount === 1 ? "" : "s"}
+            Saved {savedCount} item{savedCount === 1 ? "" : "s"}
           </p>
           <div className="flex gap-3">
             <button
               onClick={() => {
                 setDrafts([]);
+                setBudgetCommands([]);
                 setSavedCount(0);
                 setPhase("capture");
               }}

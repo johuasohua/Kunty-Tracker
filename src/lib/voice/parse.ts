@@ -80,8 +80,12 @@ const WEEKDAYS = [
   "saturday",
 ];
 
-/** Resolve a spoken date phrase to an ISO date, defaulting to today. */
-function extractDate(text: string, now: Date): string {
+/**
+ * Resolve an *explicitly spoken* date phrase to an ISO date, or null when the
+ * utterance names no date. Per the parser rules, date is inferred only when
+ * mentioned; callers decide whether to default a null to today.
+ */
+function matchExplicitDate(text: string, now: Date): string | null {
   if (/\bday before yesterday\b/.test(text)) return toISO(addDays(now, -2));
   if (/\byesterday\b/.test(text)) return toISO(addDays(now, -1));
   if (/\b(today|now|just now)\b/.test(text)) return todayISO(now);
@@ -102,7 +106,7 @@ function extractDate(text: string, now: Date): string {
     return toISO(d);
   }
 
-  return todayISO(now);
+  return null;
 }
 
 /** First monetary amount in the segment. Supports "1,200", "47.50", "10k". */
@@ -167,21 +171,95 @@ function nextId(): string {
   return `draft-${Date.now()}-${draftCounter}`;
 }
 
-/** Parse one segment (already split from any batch) into a single draft. */
-export function parseSegment(segment: string, ctx: ParseContext): VoiceDraft {
-  const now = ctx.now ?? new Date();
+// ---------------------------------------------------------------------------
+// SPEECH_TO_TX_PARSER
+// ---------------------------------------------------------------------------
+
+/**
+ * Output shape of the speech-to-transaction parser: one object per
+ * transaction, in the agreed schema. `amount` is *signed* — positive means
+ * paid on credit, negative means debit — and `type` mirrors that sign. The
+ * app itself stores a positive amount plus a separate payment method, so the
+ * mapping to the app schema happens in {@link parsedToDraft}.
+ */
+export interface ParsedTransaction {
+  date: string | null; // "YYYY-MM-DD", or null when no date was spoken
+  amount: number; // signed: + = credit, - = debit
+  person: string; // "Josh" | "Kiki"
+  category: string; // resolved category name, e.g. "Taxi"
+  note: string; // merchant details / extra context
+  type: "debit" | "credit";
+}
+
+function defaultPerson(ctx: ParseContext): Person | null {
+  return ctx.people.find((p) => p.id === ctx.defaultPersonId) ?? null;
+}
+
+/** Turn one already-split segment into a parser-schema transaction. */
+function segmentToParsed(
+  segment: string,
+  ctx: ParseContext,
+  now: Date
+): ParsedTransaction {
   const text = ` ${segment.toLowerCase().trim()} `;
 
-  const amount = extractAmount(text);
+  const rawAmount = extractAmount(text) ?? 0;
   const category = extractCategory(text, ctx.categories);
-  const person = extractPerson(text, ctx.people);
+  const person = extractPerson(text, ctx.people) ?? defaultPerson(ctx);
   const method = extractMethod(text) ?? ctx.defaultMethod;
-  const date = extractDate(text, now);
+  const signed = method === "debit" ? -Math.abs(rawAmount) : Math.abs(rawAmount);
 
+  return {
+    date: matchExplicitDate(text, now),
+    amount: signed,
+    person: person?.name ?? "",
+    category: category?.name ?? "",
+    note: buildNote(segment, category, ctx.people) ?? "",
+    type: method,
+  };
+}
+
+/**
+ * SPEECH_TO_TX_PARSER — the public entry point. Splits a (possibly batched)
+ * utterance into one clean transaction object per spoken transaction, in the
+ * agreed schema. Budget commands (see {@link parseBudgetCommand}) are not
+ * transactions and are excluded here.
+ */
+export function speechToTransactions(
+  input: string,
+  ctx: ParseContext
+): ParsedTransaction[] {
+  const now = ctx.now ?? new Date();
+  return splitSegments(input)
+    .filter((seg) => !parseBudgetCommand(seg, ctx))
+    .map((seg) => segmentToParsed(seg, ctx, now));
+}
+
+/**
+ * Map a parser-schema transaction onto the app's editable draft: resolve the
+ * category/person names to ids, take the absolute amount with the sign folded
+ * into the payment method, derive income/expense from the category, and
+ * default a missing date to today.
+ */
+export function parsedToDraft(
+  parsed: ParsedTransaction,
+  ctx: ParseContext,
+  rawText = ""
+): VoiceDraft {
+  const now = ctx.now ?? new Date();
+  const category =
+    ctx.categories.find(
+      (c) => c.name.toLowerCase() === parsed.category.toLowerCase()
+    ) ?? null;
+  const person =
+    ctx.people.find((p) => p.name.toLowerCase() === parsed.person.toLowerCase()) ??
+    null;
+
+  const amount = parsed.amount === 0 ? null : Math.abs(parsed.amount);
+  const method: PaymentMethod = parsed.type ?? (parsed.amount < 0 ? "debit" : "credit");
+  const personId = person?.id ?? ctx.defaultPersonId;
   const type: TransactionType =
     category?.treat_as === "income" ? "income" : "expense";
-
-  const personId = person?.id ?? ctx.defaultPersonId;
 
   const unresolved: VoiceDraft["unresolved"] = [];
   if (amount === null || amount <= 0) unresolved.push("amount");
@@ -195,11 +273,17 @@ export function parseSegment(segment: string, ctx: ParseContext): VoiceDraft {
     personId,
     paymentMethod: method,
     type,
-    date,
-    note: buildNote(segment, category, ctx.people),
-    rawText: segment.trim(),
+    date: parsed.date ?? todayISO(now),
+    note: parsed.note || null,
+    rawText,
     unresolved,
   };
+}
+
+/** Parse one segment (already split from any batch) into a single draft. */
+export function parseSegment(segment: string, ctx: ParseContext): VoiceDraft {
+  const now = ctx.now ?? new Date();
+  return parsedToDraft(segmentToParsed(segment, ctx, now), ctx, segment.trim());
 }
 
 /** Structural words stripped when distilling a note from raw speech. */
@@ -247,17 +331,110 @@ function buildNote(
 }
 
 /**
- * Split a spoken (or typed) utterance into one draft per transaction.
- * Batch mode: "Kiki spent 47 on Zomato and Josh 30 on taxi" → two drafts.
+ * Split an utterance into candidate segments — one per transaction/command.
+ * A segment is only kept if it contains a number, so number-less fragments
+ * (e.g. a stray "Josh and" half) are dropped rather than merged.
  */
-export function parseVoiceInput(input: string, ctx: ParseContext): VoiceDraft[] {
-  const segments = input
+function splitSegments(input: string): string[] {
+  return input
     .split(BATCH_SEPARATORS)
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && /\d/.test(s)); // a real entry needs a number
+    .filter((s) => s.length > 0 && /\d/.test(s));
+}
 
-  if (segments.length === 0) return [];
-  return segments.map((segment) => parseSegment(segment, ctx));
+/**
+ * Split a spoken (or typed) utterance into one draft per transaction.
+ * Batch mode: "Kiki spent 47 on Zomato and Josh 30 on taxi" → two drafts.
+ * Budget commands are excluded (see {@link parseVoiceSession}).
+ */
+export function parseVoiceInput(input: string, ctx: ParseContext): VoiceDraft[] {
+  return parseVoiceSession(input, ctx).transactions;
+}
+
+// ---------------------------------------------------------------------------
+// Budget voice commands — "Set Josh Taxi budget 800 monthly"
+// ---------------------------------------------------------------------------
+
+export interface BudgetCommand {
+  id: string;
+  personName: string | null; // null = shared / household budget
+  personId: string | null;
+  categoryName: string;
+  categoryId: string | null;
+  monthlyAmount: number; // always normalised to a monthly figure
+  period: "monthly" | "annual"; // as spoken
+  rawText: string;
+  unresolved: Array<"amount" | "category">;
+}
+
+/**
+ * Recognise a budget-setting command in a segment, e.g.
+ * "Set Josh Taxi budget 800 monthly" or "Zomato budget 500 shared". Returns
+ * null when the segment isn't a budget command (it's then treated as a normal
+ * transaction). An annual figure is normalised to a monthly amount.
+ */
+export function parseBudgetCommand(
+  segment: string,
+  ctx: ParseContext
+): BudgetCommand | null {
+  const text = ` ${segment.toLowerCase().trim()} `;
+  if (!/\bbudget\b/.test(text)) return null;
+
+  const amount = extractAmount(text);
+  if (amount === null || amount <= 0) return null;
+
+  const category = extractCategory(text, ctx.categories);
+  const shared = /\b(shared|both|joint|household|combined|our)\b/.test(text);
+  const person = shared ? null : extractPerson(text, ctx.people);
+  const period: "monthly" | "annual" = /\b(annual|annually|yearly|per year|a year|year)\b/.test(
+    text
+  )
+    ? "annual"
+    : "monthly";
+  const monthlyAmount = period === "annual" ? amount / 12 : amount;
+
+  const unresolved: BudgetCommand["unresolved"] = [];
+  if (!category) unresolved.push("category");
+
+  return {
+    id: nextId(),
+    personName: person?.name ?? null,
+    personId: person?.id ?? null,
+    categoryName: category?.name ?? "",
+    categoryId: category?.id ?? null,
+    monthlyAmount,
+    period,
+    rawText: segment.trim(),
+    unresolved,
+  };
+}
+
+export interface VoiceParseResult {
+  transactions: VoiceDraft[];
+  budgetCommands: BudgetCommand[];
+}
+
+/**
+ * Full voice session parse: classifies each segment as a budget command or a
+ * transaction and returns both lists. This is what the voice flow consumes.
+ */
+export function parseVoiceSession(
+  input: string,
+  ctx: ParseContext
+): VoiceParseResult {
+  const transactions: VoiceDraft[] = [];
+  const budgetCommands: BudgetCommand[] = [];
+
+  for (const seg of splitSegments(input)) {
+    const budget = parseBudgetCommand(seg, ctx);
+    if (budget) {
+      budgetCommands.push(budget);
+    } else {
+      transactions.push(parseSegment(seg, ctx));
+    }
+  }
+
+  return { transactions, budgetCommands };
 }
 
 /** Ready-made template phrases surfaced as quick-start chips. */

@@ -14,7 +14,7 @@ import {
   breakdownByCategory,
   breakdownByCategoryForYear,
   buildCategorySpendCards,
-  computeInsights,
+  computeMonthlyReview,
   computeBudgetProgress,
   computeBudgetProgressForYear,
   computeUpcomingBills,
@@ -26,7 +26,7 @@ import { MonthSelector } from "@/components/dashboard/MonthSelector";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { CategorySpendCards } from "@/components/dashboard/CategorySpendCards";
 import { AccountBreakdownTable } from "@/components/dashboard/AccountBreakdownTable";
-import { InsightsList } from "@/components/dashboard/InsightsList";
+import { MonthlyReviewCard } from "@/components/dashboard/MonthlyReviewCard";
 import { AnnualTrendChart } from "@/components/dashboard/AnnualTrendChart";
 import { AnnualCategoryList } from "@/components/dashboard/AnnualCategoryList";
 import { useCcData } from "@/lib/queries/cc";
@@ -75,9 +75,9 @@ export default function DashboardPage() {
     [transactions, categories, month]
   );
 
-  const insights = useMemo(
-    () => computeInsights(transactions, categories, month),
-    [transactions, categories, month]
+  const monthlyReview = useMemo(
+    () => computeMonthlyReview(transactions, categories, budgets, people, month),
+    [transactions, categories, budgets, people, month]
   );
 
   const yearSeries = useMemo(() => {
@@ -197,7 +197,7 @@ export default function DashboardPage() {
 
           <AccountBreakdownTable breakdown={currentBreakdown} people={people} />
 
-          <InsightsList insights={insights} monthKey={monthKey(month)} />
+          <MonthlyReviewCard review={monthlyReview} monthKey={monthKey(month)} />
         </>
       ) : (
         <>

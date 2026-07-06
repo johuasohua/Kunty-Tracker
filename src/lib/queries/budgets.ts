@@ -70,6 +70,39 @@ export async function upsertBudget(input: {
   return data as Budget;
 }
 
+/**
+ * Set a budget by (category, person) without needing the caller to know the
+ * existing row id — used by the voice command and the history seeder. Finds
+ * the latest row already in effect for this month and updates it, otherwise
+ * inserts a fresh one. `person_id: null` targets the shared budget.
+ */
+export async function upsertBudgetByKey(input: {
+  category_id: string;
+  person_id: string | null;
+  monthly_amount: number;
+}) {
+  const supabase = getSupabaseClient();
+  const now = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+
+  let query = supabase
+    .from("budgets")
+    .select("id")
+    .eq("category_id", input.category_id)
+    .eq("is_active", true)
+    .lte("effective_from", monthStart)
+    .order("effective_from", { ascending: false })
+    .limit(1);
+  query = input.person_id === null
+    ? query.is("person_id", null)
+    : query.eq("person_id", input.person_id);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return upsertBudget({ existingId: data?.[0]?.id, ...input });
+}
+
 export async function deleteBudget(id: string) {
   const supabase = getSupabaseClient();
   const { error } = await supabase.from("budgets").delete().eq("id", id);
