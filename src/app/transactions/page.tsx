@@ -14,6 +14,7 @@ import {
 import { QuickAddSheet } from "@/components/transactions/QuickAddSheet";
 import { EditTransactionSheet } from "@/components/transactions/EditTransactionSheet";
 import { FilterSheet } from "@/components/transactions/FilterSheet";
+import { QuickFilters } from "@/components/transactions/QuickFilters";
 import { TransactionMobileList } from "@/components/transactions/TransactionMobileList";
 import { TransactionTableRow } from "@/components/transactions/TransactionTableRow";
 import { DesktopEntryForm } from "@/components/transactions/DesktopEntryForm";
@@ -135,6 +136,8 @@ function TransactionsPageContent() {
           </button>
         )}
       </div>
+
+      <QuickFilters filters={filters} onChange={setFilters} people={people} />
 
       {/* Desktop: always-visible full entry form */}
       <div className="mb-6 hidden md:block">
