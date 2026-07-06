@@ -53,6 +53,7 @@ function TransactionsPageContent() {
     (filters.categoryIds?.length ?? 0) +
     (filters.personId ? 1 : 0) +
     (filters.paymentMethod ? 1 : 0) +
+    (filters.type ? 1 : 0) +
     (filters.from ? 1 : 0) +
     (filters.to ? 1 : 0);
 

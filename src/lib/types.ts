@@ -67,11 +67,14 @@ export interface Budget {
   created_at: string;
 }
 
+export type RecurringFrequency = "monthly" | "quarterly" | "annual";
+
 export interface RecurringBill {
   id: string;
   name: string;
   amount: number;
-  due_day: number;
+  frequency: RecurringFrequency;
+  next_due_date: string; // anchor date; current cycle is derived, not stored
   category_id: string | null;
   owner_person_id: string | null;
   default_payment_method: PaymentMethod | null;

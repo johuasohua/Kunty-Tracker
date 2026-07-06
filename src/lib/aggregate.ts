@@ -1,8 +1,17 @@
-import type { Category, CcPayment, OpeningCcBalance } from "@/lib/types";
+import type {
+  Budget,
+  CcPayment,
+  Category,
+  OpeningCcBalance,
+  Person,
+  RecurringBill,
+  RecurringFrequency,
+} from "@/lib/types";
 import type {
   LightTransaction,
   OpeningBalanceSeed,
 } from "@/lib/queries/dashboard-data";
+import type { RecurringBillPayment } from "@/lib/queries/recurring";
 import { monthKey } from "@/lib/format";
 
 export interface MonthPoint {
@@ -298,4 +307,259 @@ export function buildCcSeries(
   }
 
   return series;
+}
+
+export interface BudgetProgressRow {
+  person: Person | null; // null = shared budget across both people
+  budgetAmount: number;
+  actualAmount: number;
+}
+
+export interface BudgetProgressEntry {
+  category: Category;
+  rows: BudgetProgressRow[];
+  totalBudget: number;
+  totalActual: number;
+}
+
+/**
+ * For each category with an active budget, resolves the currently
+ * applicable amount(s) — either one shared figure, or one per person if
+ * per-person sub-budgets exist for that category (per-person takes
+ * precedence over any shared row for the same category) — and pairs it
+ * with actual spend for the given month.
+ */
+export function computeBudgetProgress(
+  budgets: Budget[],
+  categories: Category[],
+  transactions: LightTransaction[],
+  people: Person[],
+  month: Date
+): BudgetProgressEntry[] {
+  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+  const applicable = budgets.filter((b) => new Date(b.effective_from) <= monthStart);
+
+  // Latest applicable row per (category_id, person_id) key.
+  const latestByKey = new Map<string, Budget>();
+  for (const b of applicable) {
+    const key = `${b.category_id}:${b.person_id ?? "shared"}`;
+    const existing = latestByKey.get(key);
+    if (!existing || new Date(b.effective_from) > new Date(existing.effective_from)) {
+      latestByKey.set(key, b);
+    }
+  }
+
+  const byCategory = new Map<string, Budget[]>();
+  for (const b of latestByKey.values()) {
+    const list = byCategory.get(b.category_id) ?? [];
+    list.push(b);
+    byCategory.set(b.category_id, list);
+  }
+
+  const breakdown = breakdownByCategory(transactions, categories, month);
+  const breakdownByCategoryId = new Map(breakdown.map((b) => [b.category.id, b]));
+
+  const entries: BudgetProgressEntry[] = [];
+  for (const [categoryId, categoryBudgets] of byCategory) {
+    const category = categories.find((c) => c.id === categoryId);
+    if (!category) continue;
+
+    const perPerson = categoryBudgets.filter((b) => b.person_id !== null);
+    const shared = categoryBudgets.find((b) => b.person_id === null);
+    const spend = breakdownByCategoryId.get(categoryId);
+
+    const rows: BudgetProgressRow[] = [];
+    if (perPerson.length > 0) {
+      for (const b of perPerson) {
+        const person = people.find((p) => p.id === b.person_id) ?? null;
+        rows.push({
+          person,
+          budgetAmount: b.monthly_amount,
+          actualAmount: spend?.byPerson[b.person_id as string] ?? 0,
+        });
+      }
+    } else if (shared) {
+      rows.push({
+        person: null,
+        budgetAmount: shared.monthly_amount,
+        actualAmount: spend?.total ?? 0,
+      });
+    }
+
+    if (rows.length === 0) continue;
+
+    entries.push({
+      category,
+      rows,
+      totalBudget: rows.reduce((sum, r) => sum + r.budgetAmount, 0),
+      totalActual: rows.reduce((sum, r) => sum + r.actualAmount, 0),
+    });
+  }
+
+  return entries.sort((a, b) => b.totalActual / b.totalBudget - a.totalActual / a.totalBudget);
+}
+
+export function intervalMonthsForFrequency(frequency: RecurringFrequency): number {
+  return frequency === "monthly" ? 1 : frequency === "quarterly" ? 3 : 12;
+}
+
+/** The recurring bill's real per-payment amount, spread evenly across its
+ * billing interval — e.g. an AED 700/year subscription is "≈ AED 58.33/mo".
+ * Informational only: the actual transaction logged when marking paid is
+ * always the full amount, on the real date it's actually paid. */
+export function amortizedMonthlyAmount(bill: RecurringBill): number {
+  return bill.amount / intervalMonthsForFrequency(bill.frequency);
+}
+
+function dateOnlyString(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * The due date of the current unpaid cycle for this bill. `next_due_date`
+ * is a fixed anchor (the bill's first-ever due date) — every cycle already
+ * covered by a payment row advances the cursor by one billing interval,
+ * so this works the same way for monthly, quarterly, and annual bills
+ * without ever mutating the stored anchor.
+ */
+export function currentCycleDueDate(
+  bill: RecurringBill,
+  payments: RecurringBillPayment[]
+): Date {
+  const interval = intervalMonthsForFrequency(bill.frequency);
+  const paidDueDates = new Set(
+    payments.filter((p) => p.recurring_bill_id === bill.id).map((p) => p.month)
+  );
+
+  let cursor = new Date(bill.next_due_date);
+  // Guard against a runaway loop if something is malformed; a decade of
+  // cycles is far more than this app will ever need to advance through.
+  for (let i = 0; i < 480 && paidDueDates.has(dateOnlyString(cursor)); i++) {
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + interval, cursor.getDate());
+  }
+  return cursor;
+}
+
+export interface UpcomingBill {
+  bill: RecurringBill;
+  dueDate: Date;
+  daysUntilDue: number;
+  overdue: boolean;
+}
+
+/**
+ * Bills whose current (unpaid) cycle is due within the next `withinDays`
+ * days, or already overdue. Works uniformly across monthly/quarterly/
+ * annual bills since the cycle due date is derived per-bill.
+ */
+export function computeUpcomingBills(
+  bills: RecurringBill[],
+  payments: RecurringBillPayment[],
+  today: Date,
+  withinDays = 7
+): UpcomingBill[] {
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const results: UpcomingBill[] = [];
+
+  for (const bill of bills) {
+    const dueDate = currentCycleDueDate(bill, payments);
+    const daysUntilDue = Math.round(
+      (dueDate.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysUntilDue <= withinDays) {
+      results.push({ bill, dueDate, daysUntilDue, overdue: daysUntilDue < 0 });
+    }
+  }
+
+  return results.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+}
+
+/**
+ * Same shape as computeBudgetProgress, but for a full calendar year:
+ * actual spend sums every month of the year, and the target is the
+ * currently-applicable monthly budget (resolved as of December of that
+ * year) times 12.
+ */
+export function computeBudgetProgressForYear(
+  budgets: Budget[],
+  categories: Category[],
+  transactions: LightTransaction[],
+  people: Person[],
+  year: number
+): BudgetProgressEntry[] {
+  const yearEnd = new Date(year, 11, 1);
+  const applicable = budgets.filter((b) => new Date(b.effective_from) <= yearEnd);
+
+  const latestByKey = new Map<string, Budget>();
+  for (const b of applicable) {
+    const key = `${b.category_id}:${b.person_id ?? "shared"}`;
+    const existing = latestByKey.get(key);
+    if (!existing || new Date(b.effective_from) > new Date(existing.effective_from)) {
+      latestByKey.set(key, b);
+    }
+  }
+
+  const byCategory = new Map<string, Budget[]>();
+  for (const b of latestByKey.values()) {
+    const list = byCategory.get(b.category_id) ?? [];
+    list.push(b);
+    byCategory.set(b.category_id, list);
+  }
+
+  // Actual spend for the year, split by category and by person.
+  const actualByKey = new Map<string, number>(); // `${categoryId}:${personId}`
+  const actualByCategory = new Map<string, number>();
+  const categoryTreatAs = categoryTreatAsMap(categories);
+
+  for (const t of transactions) {
+    if (t.type !== "expense") continue;
+    const d = new Date(t.occurred_on);
+    if (d.getFullYear() !== year) continue;
+    const sign = categoryTreatAs.get(t.category_id) === "offset" ? -1 : 1;
+
+    const key = `${t.category_id}:${t.person_id}`;
+    actualByKey.set(key, (actualByKey.get(key) ?? 0) + sign * t.amount);
+    actualByCategory.set(
+      t.category_id,
+      (actualByCategory.get(t.category_id) ?? 0) + sign * t.amount
+    );
+  }
+
+  const entries: BudgetProgressEntry[] = [];
+  for (const [categoryId, categoryBudgets] of byCategory) {
+    const category = categories.find((c) => c.id === categoryId);
+    if (!category) continue;
+
+    const perPerson = categoryBudgets.filter((b) => b.person_id !== null);
+    const shared = categoryBudgets.find((b) => b.person_id === null);
+
+    const rows: BudgetProgressRow[] = [];
+    if (perPerson.length > 0) {
+      for (const b of perPerson) {
+        const person = people.find((p) => p.id === b.person_id) ?? null;
+        rows.push({
+          person,
+          budgetAmount: b.monthly_amount * 12,
+          actualAmount: actualByKey.get(`${categoryId}:${b.person_id}`) ?? 0,
+        });
+      }
+    } else if (shared) {
+      rows.push({
+        person: null,
+        budgetAmount: shared.monthly_amount * 12,
+        actualAmount: actualByCategory.get(categoryId) ?? 0,
+      });
+    }
+
+    if (rows.length === 0) continue;
+
+    entries.push({
+      category,
+      rows,
+      totalBudget: rows.reduce((sum, r) => sum + r.budgetAmount, 0),
+      totalActual: rows.reduce((sum, r) => sum + r.actualAmount, 0),
+    });
+  }
+
+  return entries.sort((a, b) => b.totalActual / b.totalBudget - a.totalActual / a.totalBudget);
 }

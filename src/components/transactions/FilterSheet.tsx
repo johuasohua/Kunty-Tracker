@@ -3,7 +3,7 @@
 import { Sheet } from "@/components/ui/Sheet";
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import type { Category, Person, PaymentMethod } from "@/lib/types";
+import type { Category, Person, PaymentMethod, TransactionType } from "@/lib/types";
 import type { TransactionFilters } from "@/lib/queries/transactions";
 import { clsx } from "clsx";
 
@@ -83,6 +83,26 @@ export function FilterSheet({
               </button>
             ))}
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[13px] font-medium text-ios-label-secondary">
+            Type
+          </label>
+          <SegmentedControl<TransactionType | "all">
+            options={[
+              { label: "All", value: "all" },
+              { label: "Income", value: "income" },
+              { label: "Expense", value: "expense" },
+            ]}
+            value={filters.type ?? "all"}
+            onChange={(v) =>
+              onChange({
+                ...filters,
+                type: v === "all" ? undefined : v,
+              })
+            }
+          />
         </div>
 
         <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,6 +14,9 @@ import {
   breakdownByCategory,
   breakdownByCategoryForYear,
   computeInsights,
+  computeBudgetProgress,
+  computeBudgetProgressForYear,
+  computeUpcomingBills,
   type MonthPoint,
 } from "@/lib/aggregate";
 import { monthKey, formatMoney } from "@/lib/format";
@@ -27,6 +31,10 @@ import { AnnualCategoryList } from "@/components/dashboard/AnnualCategoryList";
 import { useCcData } from "@/lib/queries/cc";
 import { CcSummaryCard } from "@/components/credit-cards/CcSummaryCard";
 import { MarkPaidSheet } from "@/components/credit-cards/MarkPaidSheet";
+import { useBudgets } from "@/lib/queries/budgets";
+import { useRecurringBills } from "@/lib/queries/recurring";
+import { BudgetCard } from "@/components/budgets/BudgetCard";
+import { UpcomingBillsList } from "@/components/recurring/UpcomingBillsList";
 import type { Person } from "@/lib/types";
 
 export default function DashboardPage() {
@@ -35,13 +43,16 @@ export default function DashboardPage() {
   const { transactions, seed, loading: dataLoading } = useDashboardData();
   const { openingBalances, payments: ccPayments, loading: ccLoading, refresh: refreshCc } =
     useCcData();
+  const { budgets, loading: budgetsLoading } = useBudgets();
+  const { bills, payments: billPayments, loading: billsLoading } = useRecurringBills();
   const [markPaidPerson, setMarkPaidPerson] = useState<Person | null>(null);
 
   const [view, setView] = useState<"monthly" | "annual">("monthly");
   const [month, setMonth] = useState(() => new Date());
   const [year, setYear] = useState(() => new Date().getFullYear());
 
-  const loading = categoriesLoading || dataLoading || ccLoading;
+  const loading =
+    categoriesLoading || dataLoading || ccLoading || budgetsLoading || billsLoading;
 
   const series = useMemo(
     () => buildMonthlySeries(transactions, categories, seed, month),
@@ -82,6 +93,21 @@ export default function DashboardPage() {
 
   const yearIncome = yearSeries.reduce((sum, p) => sum + p.totalIncome, 0);
   const yearExpense = yearSeries.reduce((sum, p) => sum + p.totalExpense, 0);
+
+  const budgetEntries = useMemo(
+    () => computeBudgetProgress(budgets, categories, transactions, people, month),
+    [budgets, categories, transactions, people, month]
+  );
+
+  const annualBudgetEntries = useMemo(
+    () => computeBudgetProgressForYear(budgets, categories, transactions, people, year),
+    [budgets, categories, transactions, people, year]
+  );
+
+  const upcomingBills = useMemo(
+    () => computeUpcomingBills(bills, billPayments, new Date()),
+    [bills, billPayments]
+  );
 
   const ccSeriesByPerson = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildCcSeries>>();
@@ -125,6 +151,8 @@ export default function DashboardPage() {
             <BalanceCard point={currentPoint} />
           </div>
 
+          <UpcomingBillsList bills={upcomingBills} categories={categories} />
+
           {people.length > 0 && (
             <div className="mb-6 grid gap-4 md:grid-cols-2">
               {people.map((p) => {
@@ -143,6 +171,24 @@ export default function DashboardPage() {
           )}
 
           <InsightsList insights={insights} />
+
+          {budgetEntries.length > 0 && (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between px-4 md:px-0">
+                <span className="text-[13px] font-medium uppercase tracking-wide text-ios-label-secondary">
+                  Budgets
+                </span>
+                <Link href="/budgets" className="text-[13px] font-medium text-ios-blue">
+                  Manage
+                </Link>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {budgetEntries.map((entry) => (
+                  <BudgetCard key={entry.category.id} entry={entry} readOnly />
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mb-6 grid gap-4 md:grid-cols-2">
             <Card className="p-4">
@@ -193,6 +239,24 @@ export default function DashboardPage() {
           <div className="mb-6">
             <AnnualTrendChart points={yearSeries} />
           </div>
+
+          {annualBudgetEntries.length > 0 && (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between px-4 md:px-0">
+                <span className="text-[13px] font-medium uppercase tracking-wide text-ios-label-secondary">
+                  Budgets — {year}
+                </span>
+                <Link href="/budgets" className="text-[13px] font-medium text-ios-blue">
+                  Manage
+                </Link>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {annualBudgetEntries.map((entry) => (
+                  <BudgetCard key={entry.category.id} entry={entry} readOnly />
+                ))}
+              </div>
+            </div>
+          )}
 
           <AnnualCategoryList totals={annualTotals} year={year} />
         </>
