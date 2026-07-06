@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { GroupedSection } from "@/components/ui/Card";
 import { ListRow } from "@/components/ui/ListRow";
@@ -37,9 +38,16 @@ export default function SettingsPage() {
         ))}
       </GroupedSection>
 
-      <GroupedSection title="Categories, Budgets & Recurring Bills" footer="Managing these directly lands in a later phase — for now they're seeded via the historical data import.">
-        <ListRow label="Manage categories" chevron last={false} />
-        <ListRow label="Manage recurring bills" chevron last={true} />
+      <GroupedSection
+        title="Categories, Budgets & Recurring Bills"
+        footer="Rename, recolor, reorder, or hide categories — changes apply everywhere immediately. Budgets are managed on the Budgets tab."
+      >
+        <Link href="/settings/categories">
+          <ListRow label="Manage categories" chevron last={false} />
+        </Link>
+        <Link href="/recurring">
+          <ListRow label="Manage recurring bills" chevron last={true} />
+        </Link>
       </GroupedSection>
 
       <GroupedSection title="iOS Shortcuts" footer="Generate a personal API token to log expenses from the Lock Screen or Siri. Lands in a later phase.">

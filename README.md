@@ -6,16 +6,16 @@ capture. iOS-styled, installable as a PWA, backed by Supabase.
 
 ## Status
 
-**Phase 1 (this commit): schema + app scaffold.**
+**All core phases complete** — dashboard (balance, category cards grid,
+monthly review), transactions (search + filters), mortgage + offset ledger,
+credit cards, budgets (incl. per-person and history-based suggestions),
+recurring bills, voice capture with batch parsing, category management in
+Settings, and the historical Excel import pipeline.
 
-- Database schema (`supabase/migrations/0001_init.sql`)
-- Next.js 16 + Tailwind v4 app shell, iOS design system, responsive nav
-  (sidebar on desktop, bottom tab bar + floating mic button on mobile)
-- Supabase auth (magic link) + profile switcher (Josh/Kiki, no real per-user
-  auth needed — this just tags entries)
-- All tabs exist as routes with placeholder content; real functionality
-  (dashboard charts, transaction entry, mortgage tables, budgets, recurring
-  bills, voice parsing, historical Excel import) lands in later phases.
+Logging a transaction in the **Mortgage** or **Offset** category also
+populates the mortgage payment ledger automatically (offset deposits update
+the latest period; mortgage payments open the next period — edit the P/I
+split on the Mortgage tab afterwards).
 
 ## Setup
 
@@ -63,6 +63,34 @@ Once the schema is live, drop your existing tracker workbook at
 `data/Kiki___Josh_Exp_tracker.xlsx` (already git-ignored) and run the import
 script — added in a later phase — to seed mortgage history, transactions,
 categories, budgets, and recurring bills.
+
+## Deploying to Vercel
+
+1. **Import the repo** in Vercel (framework preset: Next.js — no custom
+   config needed).
+2. **Environment variables** (Project → Settings → Environment Variables),
+   same three as `.env.local`:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (server-only; never referenced by client
+     code — keep it out of `NEXT_PUBLIC_*`)
+3. **Supabase redirect URLs** — without this, magic-link sign-in silently
+   redirects to localhost. In the Supabase dashboard, open
+   **Authentication → URL Configuration** and set:
+   - **Site URL**: `https://<your-app>.vercel.app`
+   - **Additional Redirect URLs**:
+     - `https://<your-app>.vercel.app/**`
+     - `http://localhost:3000/**` (keep local dev working)
+     - `https://*-<your-team>.vercel.app/**` if you want preview deploys to
+       sign in too.
+
+   The app requests `emailRedirectTo: window.location.origin`, so it works
+   on any domain you allow here — a custom domain later just needs adding to
+   this list.
+4. **Database**: make sure every file in `supabase/migrations/` has been run
+   (in order) in the Supabase SQL editor of the production project.
+5. Sign in once from the deployed URL, add the app to your home screen, and
+   set the active profile in Settings.
 
 ## Tech
 

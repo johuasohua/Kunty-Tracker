@@ -97,7 +97,32 @@ export async function createTransaction(input: TransactionInput) {
     .select()
     .single();
   if (error) throw error;
-  return data as Transaction;
+  const transaction = data as Transaction;
+
+  // "Mortgage" / "Offset" transactions also populate the mortgage ledger by
+  // default, so logging the payment once keeps both the cash-flow view and
+  // the Mortgage tab current. The transaction is already saved at this point;
+  // a ledger hiccup shouldn't lose it, so sync failures only warn.
+  try {
+    const { data: category } = await supabase
+      .from("categories")
+      .select("name")
+      .eq("id", input.category_id)
+      .single();
+    if (category && typeof category.name === "string") {
+      const { syncLedgerForCategoryTransaction } = await import("@/lib/queries/mortgage");
+      await syncLedgerForCategoryTransaction({
+        categoryName: category.name,
+        amount: input.amount,
+        occurredOn: input.occurred_on,
+        note: input.note ?? null,
+      });
+    }
+  } catch (err) {
+    console.warn("Mortgage ledger sync failed (transaction saved):", err);
+  }
+
+  return transaction;
 }
 
 export async function updateTransaction(

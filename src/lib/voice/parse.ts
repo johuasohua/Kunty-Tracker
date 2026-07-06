@@ -109,17 +109,159 @@ function matchExplicitDate(text: string, now: Date): string | null {
   return null;
 }
 
-/** First monetary amount in the segment. Supports "1,200", "47.50", "10k". */
+/** First monetary amount in the segment. Tries, in order: a number next to a
+ * currency word ("47 aed", "dhs 300"), a number after a spend verb ("paid
+ * 3000", "for 250"), a k-suffixed shorthand ("10k"), then the first bare
+ * number. Date phrases are stripped first so "3 days ago" can't be read as
+ * an amount. Word numbers ("forty-seven") are handled upstream by
+ * normalizeWordNumbers, which rewrites them to digits. */
 function extractAmount(text: string): number | null {
-  const kMatch = text.match(/(\d[\d,]*(?:\.\d+)?)\s*k\b/i);
-  if (kMatch) {
-    const n = parseFloat(kMatch[1].replace(/,/g, ""));
-    if (!Number.isNaN(n)) return n * 1000;
+  const t = text
+    .replace(/\b\d+\s+days?\s+ago\b/gi, " ")
+    .replace(/\bday before yesterday\b/gi, " ");
+
+  const NUM = "(\\d[\\d,]*(?:\\.\\d+)?)\\s*(k)?";
+  const strategies = [
+    new RegExp(`${NUM}\\s*(?:aed|dhs|dirhams?)\\b`, "i"),
+    new RegExp(`\\b(?:aed|dhs|dirhams?)\\s*${NUM}`, "i"),
+    new RegExp(`\\b(?:spent|paid|pay|pays|costs?|for|worth)\\s+(?:about\\s+|around\\s+)?${NUM}\\b`, "i"),
+    new RegExp(`${NUM.replace("(k)?", "(k)")}\\b`, "i"), // k-suffix anywhere
+    new RegExp(NUM),
+  ];
+
+  for (const re of strategies) {
+    const m = t.match(re);
+    if (!m) continue;
+    const n = parseFloat(m[1].replace(/,/g, ""));
+    if (Number.isNaN(n)) continue;
+    return m[2] ? n * 1000 : n;
   }
-  const match = text.match(/(\d[\d,]*(?:\.\d+)?)/);
-  if (!match) return null;
-  const n = parseFloat(match[1].replace(/,/g, ""));
-  return Number.isNaN(n) ? null : n;
+  return null;
+}
+
+// --- Word-number support ("forty-seven", "ten thousand", "one hundred and fifty") ---
+
+const NUM_UNITS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+  eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
+  fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18,
+  nineteen: 19,
+};
+const NUM_TENS: Record<string, number> = {
+  twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70,
+  eighty: 80, ninety: 90,
+};
+const NUM_SCALES: Record<string, number> = {
+  hundred: 100, thousand: 1000, grand: 1000, million: 1000000,
+};
+
+interface WordToken {
+  start: number;
+  end: number;
+  kind: "unit" | "tens" | "scale" | "and";
+  value: number;
+}
+
+/** Classify one whitespace token (possibly hyphenated, e.g. "forty-seven"). */
+function classifyNumberWord(raw: string): Omit<WordToken, "start" | "end">[] | null {
+  const clean = raw.toLowerCase().replace(/[.,!?]+$/, "");
+  const parts = clean.split("-");
+  const out: Omit<WordToken, "start" | "end">[] = [];
+  for (const p of parts) {
+    if (p in NUM_UNITS) out.push({ kind: "unit", value: NUM_UNITS[p] });
+    else if (p in NUM_TENS) out.push({ kind: "tens", value: NUM_TENS[p] });
+    else if (p in NUM_SCALES) out.push({ kind: "scale", value: NUM_SCALES[p] });
+    else if (p === "and") out.push({ kind: "and", value: 0 });
+    else return null;
+  }
+  return out.length > 0 ? out : null;
+}
+
+function evaluateNumberRun(tokens: WordToken[]): number {
+  let total = 0;
+  let current = 0;
+  for (const t of tokens) {
+    if (t.kind === "and") continue;
+    if (t.kind === "scale") {
+      if (t.value >= 1000) {
+        total += (current || 1) * t.value;
+        current = 0;
+      } else {
+        current = (current || 1) * t.value;
+      }
+    } else {
+      current += t.value;
+    }
+  }
+  return total + current;
+}
+
+/**
+ * Rewrite spoken number words to digits across the whole utterance, e.g.
+ * "Zomato one hundred and fifty" → "Zomato 150". Runs *before* the batch
+ * splitter so an "and" inside a number ("hundred and fifty") is consumed here
+ * and can no longer be mistaken for a transaction separator. An "and" only
+ * continues a run when it directly follows a scale word (hundred/thousand),
+ * so "fifty and taxi thirty" still splits into two entries.
+ */
+export function normalizeWordNumbers(input: string): string {
+  const tokenRe = /\S+/g;
+  interface Raw { start: number; end: number; parts: Omit<WordToken, "start" | "end">[] | null; text: string }
+  const raws: Raw[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = tokenRe.exec(input)) !== null) {
+    raws.push({ start: m.index, end: m.index + m[0].length, parts: classifyNumberWord(m[0]), text: m[0] });
+  }
+
+  const replacements: Array<{ start: number; end: number; value: number }> = [];
+  let i = 0;
+  while (i < raws.length) {
+    if (!raws[i].parts || raws[i].parts!.every((p) => p.kind === "and")) {
+      i += 1;
+      continue;
+    }
+    // Start of a run — extend while tokens stay numeric under the "and" rule.
+    const run: WordToken[] = [];
+    let j = i;
+    let lastKind: WordToken["kind"] | null = null;
+    let endIndex = i; // last token actually included
+    while (j < raws.length && raws[j].parts) {
+      const parts = raws[j].parts!;
+      const isPureAnd = parts.every((p) => p.kind === "and");
+      if (isPureAnd) {
+        // "and" continues the run only after a scale word and only when the
+        // next token is numeric too; otherwise it terminates the run.
+        const next = raws[j + 1];
+        if (lastKind === "scale" && next?.parts && !next.parts.every((p) => p.kind === "and")) {
+          j += 1; // consume the "and" but don't include it in bounds yet
+          continue;
+        }
+        break;
+      }
+      for (const p of parts) run.push({ ...p, start: raws[j].start, end: raws[j].end });
+      lastKind = parts[parts.length - 1].kind;
+      endIndex = j;
+      j += 1;
+    }
+    if (run.length > 0) {
+      replacements.push({
+        start: raws[i].start,
+        end: raws[endIndex].end,
+        value: evaluateNumberRun(run),
+      });
+    }
+    i = Math.max(j, endIndex + 1);
+  }
+
+  if (replacements.length === 0) return input;
+  let out = "";
+  let cursor = 0;
+  for (const r of replacements) {
+    out += input.slice(cursor, r.start) + String(r.value);
+    cursor = r.end;
+  }
+  out += input.slice(cursor);
+  return out;
 }
 
 function extractPerson(text: string, people: Person[]): Person | null {
@@ -332,14 +474,30 @@ function buildNote(
 
 /**
  * Split an utterance into candidate segments — one per transaction/command.
- * A segment is only kept if it contains a number, so number-less fragments
- * (e.g. a stray "Josh and" half) are dropped rather than merged.
+ * Word numbers are normalised to digits first (so "hundred and fifty" can't
+ * be split on its own "and"). Fragments without a number aren't dropped:
+ * they're glued onto the neighbouring entry so "burger and fries 30" stays
+ * one transaction with its full context intact.
  */
 function splitSegments(input: string): string[] {
-  return input
+  const parts = normalizeWordNumbers(input)
     .split(BATCH_SEPARATORS)
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && /\d/.test(s));
+    .filter((s) => s.length > 0);
+
+  const segments: string[] = [];
+  let pendingPrefix = "";
+  for (const part of parts) {
+    if (/\d/.test(part)) {
+      segments.push(pendingPrefix ? `${pendingPrefix} ${part}` : part);
+      pendingPrefix = "";
+    } else if (segments.length > 0) {
+      segments[segments.length - 1] += ` ${part}`;
+    } else {
+      pendingPrefix = pendingPrefix ? `${pendingPrefix} ${part}` : part;
+    }
+  }
+  return segments;
 }
 
 /**
@@ -379,6 +537,15 @@ export function parseBudgetCommand(
 ): BudgetCommand | null {
   const text = ` ${segment.toLowerCase().trim()} `;
   if (!/\bbudget\b/.test(text)) return null;
+
+  // Merely *containing* "budget" isn't enough — "paid 500 for budget app" is
+  // a transaction. It's a command only when phrased like one: an imperative
+  // verb before "budget", or the amount directly adjacent to the word.
+  const looksLikeCommand =
+    /\b(set|update|change|make|adjust|increase|decrease)\b[\s\S]*\bbudget\b/.test(text) ||
+    /\bbudget\b\s*(?:of|to|at|is)?\s*\d/.test(text) ||
+    /\d[\d,]*(?:\.\d+)?\s*(?:aed\s*)?(?:monthly|per month|a month|annual(?:ly)?|yearly|per year)?\s*budget\b/.test(text);
+  if (!looksLikeCommand) return null;
 
   const amount = extractAmount(text);
   if (amount === null || amount <= 0) return null;

@@ -32,6 +32,9 @@ const ICONS: Record<string, LucideIcon> = {
   "undo-2": Undo2,
 };
 
+/** Icon names available to the category editor's picker. */
+export const CATEGORY_ICON_NAMES = Object.keys(ICONS);
+
 export function CategoryIcon({
   icon,
   color,
