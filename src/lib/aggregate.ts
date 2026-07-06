@@ -964,3 +964,86 @@ export function buildSavingsData({
 
   return series;
 }
+
+export interface CategoryMonthlySpend {
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string;
+  categoryIcon: string | null;
+  months: Array<{
+    key: string;
+    amount: number;
+  }>;
+  total: number;
+  average: number;
+  trend: "up" | "down" | "flat";
+}
+
+export function buildThreeMonthSpendAnalysis(
+  transactions: LightTransaction[],
+  categories: Category[],
+  endMonth: Date
+): CategoryMonthlySpend[] {
+  const treatAs = categoryTreatAsMap(categories);
+
+  // Get the 3 months: current and 2 previous
+  const months: { key: string; date: Date }[] = [];
+  for (let i = 2; i >= 0; i--) {
+    const d = new Date(endMonth.getFullYear(), endMonth.getMonth() - i, 1);
+    months.push({
+      key: monthKey(d),
+      date: d,
+    });
+  }
+
+  // Build spending by category and month
+  const spendByCategory = new Map<string, CategoryMonthlySpend>();
+
+  for (const cat of categories) {
+    if (cat.treat_as === "income") continue;
+
+    const monthlySpend = months.map((m) => {
+      const catTransactions = transactions.filter(
+        (t) =>
+          t.type === "expense" &&
+          t.category_id === cat.id &&
+          monthKey(new Date(t.occurred_on)) === m.key
+      );
+
+      let amount = 0;
+      for (const t of catTransactions) {
+        const sign = treatAs.get(t.category_id) === "offset" ? -1 : 1;
+        amount += sign * t.amount;
+      }
+
+      return {
+        key: m.key,
+        amount: Math.max(0, amount),
+      };
+    });
+
+    const total = monthlySpend.reduce((sum, m) => sum + m.amount, 0);
+    const average = total / 3;
+
+    // Determine trend: compare first month to last month
+    const firstMonth = monthlySpend[0]?.amount ?? 0;
+    const lastMonth = monthlySpend[2]?.amount ?? 0;
+    let trend: "up" | "down" | "flat" = "flat";
+    if (lastMonth > firstMonth * 1.1) trend = "up";
+    else if (lastMonth < firstMonth * 0.9) trend = "down";
+
+    spendByCategory.set(cat.id, {
+      categoryId: cat.id,
+      categoryName: cat.name,
+      categoryColor: cat.color,
+      categoryIcon: cat.icon,
+      months: monthlySpend,
+      total,
+      average,
+      trend,
+    });
+  }
+
+  // Sort by total spend (highest first)
+  return Array.from(spendByCategory.values()).sort((a, b) => b.total - a.total);
+}

@@ -11,10 +11,12 @@ import {
   useTransactions,
   type TransactionFilters,
 } from "@/lib/queries/transactions";
+import { buildThreeMonthSpendAnalysis } from "@/lib/aggregate";
 import { QuickAddSheet } from "@/components/transactions/QuickAddSheet";
 import { EditTransactionSheet } from "@/components/transactions/EditTransactionSheet";
 import { FilterSheet } from "@/components/transactions/FilterSheet";
 import { QuickFilters } from "@/components/transactions/QuickFilters";
+import { SpendAnalysisChart } from "@/components/transactions/SpendAnalysisChart";
 import { TransactionMobileList } from "@/components/transactions/TransactionMobileList";
 import { TransactionTableRow } from "@/components/transactions/TransactionTableRow";
 import { DesktopEntryForm } from "@/components/transactions/DesktopEntryForm";
@@ -74,6 +76,11 @@ function TransactionsPageContent() {
     });
   }, [transactions, search, categories, people]);
 
+  const spendAnalysis = useMemo(() => {
+    if (transactions.length === 0) return [];
+    return buildThreeMonthSpendAnalysis(transactions, categories, new Date());
+  }, [transactions, categories]);
+
   const activeFilterCount =
     (filters.categoryIds?.length ?? 0) +
     (filters.personId ? 1 : 0) +
@@ -114,6 +121,12 @@ function TransactionsPageContent() {
       <div className="mb-4">
         <SpeakTransactionButton />
       </div>
+
+      {spendAnalysis.length > 0 && (
+        <div className="mb-6">
+          <SpendAnalysisChart data={spendAnalysis} />
+        </div>
+      )}
 
       <div className="relative mb-4">
         <Search
