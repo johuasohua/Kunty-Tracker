@@ -24,6 +24,18 @@ export interface MonthPoint {
   closing: number;
 }
 
+export interface SavingsMonth {
+  key: string; // "2026-01"
+  month: Date;
+  openingBalance: number;
+  totalIncome: number;
+  debitExpense: number; // expenses paid with debit
+  ccPaidOff: number; // credit card payment amounts
+  totalExpense: number; // all expenses (debit + credit)
+  closingBalance: number;
+  amountSaved: number; // closing - opening
+}
+
 function categoryTreatAsMap(categories: Category[]) {
   const map = new Map<string, Category["treat_as"]>();
   for (const c of categories) map.set(c.id, c.treat_as);
@@ -854,4 +866,101 @@ export function computeBudgetProgressForYear(
   }
 
   return entries.sort((a, b) => b.totalActual / b.totalBudget - a.totalActual / a.totalBudget);
+}
+
+export interface SavingsDataInput {
+  transactions: LightTransaction[];
+  categories: Category[];
+  ccPayments: CcPayment[];
+  seed: OpeningBalanceSeed | null;
+  endMonth: Date;
+}
+
+export function buildSavingsData({
+  transactions,
+  categories,
+  ccPayments,
+  seed,
+  endMonth,
+}: SavingsDataInput): SavingsMonth[] {
+  const treatAs = categoryTreatAsMap(categories);
+
+  // Group transactions by month
+  const txByMonth = new Map<string, LightTransaction[]>();
+  for (const t of transactions) {
+    const key = monthKey(new Date(t.occurred_on));
+    const list = txByMonth.get(key) ?? [];
+    list.push(t);
+    txByMonth.set(key, list);
+  }
+
+  // Group CC payments by month
+  const ccByMonth = new Map<string, CcPayment[]>();
+  for (const c of ccPayments) {
+    const key = c.month; // month is already in YYYY-MM format
+    const list = ccByMonth.get(key) ?? [];
+    list.push(c);
+    ccByMonth.set(key, list);
+  }
+
+  // Determine the month range
+  let startDate: Date;
+  if (seed) {
+    startDate = new Date(seed.as_of_month);
+  } else if (transactions.length > 0) {
+    startDate = new Date(transactions[0].occurred_on);
+  } else {
+    startDate = endMonth;
+  }
+  startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const end = new Date(endMonth.getFullYear(), endMonth.getMonth(), 1);
+
+  const series: SavingsMonth[] = [];
+  let running = seed?.balance ?? 0;
+  const cursor = new Date(startDate);
+
+  while (cursor <= end) {
+    const key = monthKey(cursor);
+    const monthTxs = txByMonth.get(key) ?? [];
+    const monthCcPayments = ccByMonth.get(key) ?? [];
+
+    let totalIncome = 0;
+    let debitExpense = 0;
+    let totalExpense = 0;
+
+    for (const t of monthTxs) {
+      if (t.type === "income") {
+        totalIncome += t.amount;
+      } else if (t.type === "expense") {
+        const treatAsType = treatAs.get(t.category_id);
+        const amount = treatAsType === "offset" ? -t.amount : t.amount;
+        totalExpense += amount;
+        if (t.payment_method === "debit") {
+          debitExpense += amount;
+        }
+      }
+    }
+
+    const ccPaidOff = monthCcPayments.reduce((sum, c) => sum + c.amount_paid, 0);
+    const opening = running;
+    const closing = opening + totalIncome - totalExpense - ccPaidOff;
+    const amountSaved = closing - opening;
+
+    series.push({
+      key,
+      month: new Date(cursor),
+      openingBalance: opening,
+      totalIncome,
+      debitExpense,
+      ccPaidOff,
+      totalExpense,
+      closingBalance: closing,
+      amountSaved,
+    });
+
+    running = closing;
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return series;
 }

@@ -3,6 +3,7 @@ import {
   List,
   Landmark,
   PiggyBank,
+  TrendingUp,
   Repeat,
   Settings,
   CreditCard,
@@ -20,6 +21,7 @@ export const primaryNavItems: NavItem[] = [
   { href: "/transactions", label: "Transactions", icon: List },
   { href: "/mortgage", label: "Mortgage", icon: Landmark },
   { href: "/budgets", label: "Budgets", icon: PiggyBank },
+  { href: "/savings", label: "Savings", icon: TrendingUp },
 ];
 
 // Only surfaced in the desktop sidebar and the mobile "More" tab.
