@@ -14,6 +14,6 @@ insert into categories (name, treat_as, color, icon, sort_order) values
   ('Travel',       'expense', '#007AFF', 'plane',         16),
   ('Maintenance',  'expense', '#8E8E93', 'wrench',        17),
   ('Mortgage',     'expense', '#5856D6', 'landmark',      18),
-  ('Rak Offset',   'expense', '#30B0C7', 'arrow-left-right', 19),
+  ('Offset',       'expense', '#30B0C7', 'arrow-left-right', 19),
   ('Refunds',      'offset',  '#34C759', 'undo-2',        20)
 on conflict (name) do nothing;

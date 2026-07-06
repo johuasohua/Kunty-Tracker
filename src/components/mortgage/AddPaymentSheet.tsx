@@ -45,7 +45,9 @@ export function AddPaymentSheet({
     setPrincipal("");
     setInterest("");
     setInsurance(lastPayment ? String(lastPayment.insurance_amount) : "");
-    setHoi(lastPayment ? String(lastPayment.hoi_charge) : "");
+    // HOI is a fixed monthly charge — carried forward from the last period
+    // (defaults to 105 for the very first entry), not user-editable.
+    setHoi(lastPayment ? String(lastPayment.hoi_charge) : "105");
     setOffsetOpening(
       lastPayment?.offset_closing_balance != null
         ? String(lastPayment.offset_closing_balance)
@@ -144,13 +146,11 @@ export function AddPaymentSheet({
               className="w-full rounded-xl border border-ios-separator bg-ios-bg px-3.5 py-2.5 text-[15px] text-ios-label outline-none focus:border-ios-blue"
             />
           </Field>
-          <Field label="HOI Charge">
-            <input
-              inputMode="decimal"
-              value={hoi}
-              onChange={(e) => setHoi(e.target.value)}
-              className="w-full rounded-xl border border-ios-separator bg-ios-bg px-3.5 py-2.5 text-[15px] text-ios-label outline-none focus:border-ios-blue"
-            />
+          <Field label="HOI Charge (fixed)">
+            <div className="flex items-center justify-between rounded-xl border border-ios-separator bg-ios-fill px-3.5 py-2.5 text-[15px] text-ios-label-secondary">
+              <span>{(parseFloat(hoi) || 0).toFixed(2)}</span>
+              <span className="text-[11px] uppercase tracking-wide">monthly</span>
+            </div>
           </Field>
         </div>
 
