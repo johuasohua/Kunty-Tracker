@@ -21,6 +21,7 @@ import {
   type MonthPoint,
 } from "@/lib/aggregate";
 import { monthKey, formatMoney } from "@/lib/format";
+import { SpeakTransactionButton } from "@/components/voice/SpeakTransactionButton";
 import { MonthSelector } from "@/components/dashboard/MonthSelector";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { CategorySpendCards } from "@/components/dashboard/CategorySpendCards";
@@ -139,6 +140,10 @@ export default function DashboardPage() {
         year={year}
         onYearChange={setYear}
       />
+
+      <div className="mb-6">
+        <SpeakTransactionButton />
+      </div>
 
       {!hasAnyData ? (
         <EmptyState

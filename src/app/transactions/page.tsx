@@ -17,6 +17,7 @@ import { FilterSheet } from "@/components/transactions/FilterSheet";
 import { TransactionMobileList } from "@/components/transactions/TransactionMobileList";
 import { TransactionTableRow } from "@/components/transactions/TransactionTableRow";
 import { DesktopEntryForm } from "@/components/transactions/DesktopEntryForm";
+import { SpeakTransactionButton } from "@/components/voice/SpeakTransactionButton";
 import type { Transaction } from "@/lib/types";
 
 export default function TransactionsPage() {
@@ -85,6 +86,10 @@ function TransactionsPageContent() {
           </div>
         }
       />
+
+      <div className="mb-4">
+        <SpeakTransactionButton />
+      </div>
 
       {/* Desktop: always-visible full entry form */}
       <div className="mb-6 hidden md:block">

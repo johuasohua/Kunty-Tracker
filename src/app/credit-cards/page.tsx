@@ -11,6 +11,7 @@ import { buildCcSeries } from "@/lib/aggregate";
 import { CcTrendChart } from "@/components/credit-cards/CcTrendChart";
 import { CcHistoryTable } from "@/components/credit-cards/CcHistoryTable";
 import { MarkPaidSheet } from "@/components/credit-cards/MarkPaidSheet";
+import { SpeakTransactionButton } from "@/components/voice/SpeakTransactionButton";
 import type { Person } from "@/lib/types";
 
 export default function CreditCardsPage() {
@@ -45,6 +46,10 @@ function CreditCardsPageContent() {
   return (
     <div className="px-4 md:px-0">
       <PageHeader title="Credit Cards" />
+
+      <div className="mb-4">
+        <SpeakTransactionButton />
+      </div>
 
       {people.length > 0 && (
         <div className="mb-4 px-0">
