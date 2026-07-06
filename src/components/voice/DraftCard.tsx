@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Trash2, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
@@ -23,6 +24,12 @@ export function DraftCard({
   onRemove: () => void;
 }) {
   const missing = new Set(draft.unresolved);
+
+  // Keep the amount field as raw text so decimals ("47.50") type cleanly;
+  // the numeric draft value is derived on change.
+  const [amountText, setAmountText] = useState(
+    draft.amount != null ? String(draft.amount) : ""
+  );
 
   function setCategory(categoryId: string) {
     const category = categories.find((c) => c.id === categoryId);
@@ -62,10 +69,12 @@ export function DraftCard({
           </label>
           <input
             inputMode="decimal"
-            value={draft.amount ?? ""}
+            value={amountText}
             onChange={(e) => {
               const v = e.target.value;
-              onChange({ amount: v === "" ? null : Number(v) });
+              setAmountText(v);
+              const n = parseFloat(v);
+              onChange({ amount: v.trim() === "" || Number.isNaN(n) ? null : n });
             }}
             placeholder="0.00"
             className={

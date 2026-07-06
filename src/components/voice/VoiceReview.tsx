@@ -208,6 +208,9 @@ function BudgetCommandCard({
 }) {
   const budgetable = categories.filter((c) => c.treat_as !== "income");
   const missingCategory = !command.categoryId;
+  const [amountText, setAmountText] = useState(
+    command.monthlyAmount ? String(round2(command.monthlyAmount)) : ""
+  );
 
   return (
     <Card className="p-4">
@@ -270,8 +273,12 @@ function BudgetCommandCard({
           </label>
           <input
             inputMode="decimal"
-            value={command.monthlyAmount ? String(round2(command.monthlyAmount)) : ""}
-            onChange={(e) => onChange({ monthlyAmount: Number(e.target.value) || 0 })}
+            value={amountText}
+            onChange={(e) => {
+              setAmountText(e.target.value);
+              const n = parseFloat(e.target.value);
+              onChange({ monthlyAmount: Number.isNaN(n) ? 0 : n });
+            }}
             className="w-full rounded-lg border border-ios-separator bg-ios-bg px-2 py-2 text-[14px] text-ios-label outline-none focus:border-ios-blue"
           />
         </div>
