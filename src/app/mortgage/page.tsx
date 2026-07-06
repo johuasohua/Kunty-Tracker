@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useMortgagePayments } from "@/lib/queries/mortgage";
 import { MortgageBalanceChart } from "@/components/mortgage/MortgageBalanceChart";
 import { InterestSavedCard } from "@/components/mortgage/InterestSavedCard";
+import { PaymentBreakdownCard } from "@/components/mortgage/PaymentBreakdownCard";
 import { OffsetPanel } from "@/components/mortgage/OffsetPanel";
 import { PaymentHistoryTable } from "@/components/mortgage/PaymentHistoryTable";
 import { AddPaymentSheet } from "@/components/mortgage/AddPaymentSheet";
@@ -45,6 +46,10 @@ export default function MortgagePage() {
         <>
           <div className="mb-6">
             <InterestSavedCard payments={payments} />
+          </div>
+
+          <div className="mb-6">
+            <PaymentBreakdownCard payments={payments} />
           </div>
 
           <div className="mb-6">
