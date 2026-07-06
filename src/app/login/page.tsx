@@ -41,7 +41,7 @@ export default function LoginPage() {
             K
           </div>
           <h1 className="text-[22px] font-bold text-ios-label">
-            Kunty Tracker
+            Kunty
           </h1>
           <p className="text-center text-[14px] text-ios-label-secondary">
             Josh &amp; Kiki&apos;s household finance tracker. Sign in with the

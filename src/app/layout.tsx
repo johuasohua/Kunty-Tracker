@@ -7,13 +7,13 @@ import { ConfigNeeded } from "@/components/nav/ConfigNeeded";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export const metadata: Metadata = {
-  title: "Kunty Tracker",
+  title: "Kunty",
   description: "Josh & Kiki's household finance tracker",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Kunty Tracker",
+    title: "Kunty",
   },
   icons: {
     icon: [

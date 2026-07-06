@@ -37,7 +37,7 @@ export function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-ios-separator bg-ios-bg-secondary px-3 py-6 md:flex">
       <div className="mb-6 px-3 text-[20px] font-bold text-ios-label">
-        Kunty Tracker
+        Kunty
       </div>
 
       <button

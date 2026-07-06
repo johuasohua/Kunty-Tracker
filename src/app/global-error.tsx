@@ -25,7 +25,7 @@ export default function GlobalError({
       >
         <div style={{ textAlign: "center", padding: 24, maxWidth: 340 }}>
           <h2 style={{ fontSize: 17, fontWeight: 600, color: "#000" }}>
-            Kunty Tracker hit a snag
+            Kunty hit a snag
           </h2>
           <p style={{ fontSize: 14, color: "#6e6e73", marginTop: 4 }}>
             An unexpected error stopped the app from loading. Your data is
