@@ -35,7 +35,7 @@ export interface ParseContext {
  */
 const CATEGORY_ALIASES: Record<string, string[]> = {
   Taxi: ["taxi", "uber", "careem", "cab", "ride"],
-  Zomato: ["zomato", "dinner", "lunch", "food", "takeaway", "takeout", "restaurant", "deliveroo", "talabat"],
+  "Food Delivery": ["food delivery", "zomato", "deliveroo", "talabat", "food", "dinner", "lunch", "takeaway", "takeout", "restaurant", "ordered"],
   Instashop: ["instashop", "groceries", "grocery", "supermarket", "carrefour", "spinneys"],
   Salary: ["salary", "paycheck", "payroll", "wages", "income"],
   Investments: ["investment", "investments", "stocks", "shares", "dividend"],
@@ -429,7 +429,8 @@ export function parseSegment(segment: string, ctx: ParseContext): VoiceDraft {
 }
 
 /** Structural words stripped when distilling a note from raw speech.
- * Note: preserves location prepositions (to, at, near, from) for context.
+ * Note: preserves location prepositions (to, at, near, from) for restaurant/location names.
+ * Also preserves "ordered" context for food delivery transactions.
  */
 const NOTE_FILLER = new RegExp(
   "\\b(?:" +
@@ -623,7 +624,7 @@ export interface VoiceTemplate {
 
 export const VOICE_TEMPLATES: VoiceTemplate[] = [
   { label: "Taxi", categoryName: "Taxi", example: "Taxi 30 today" },
-  { label: "Zomato", categoryName: "Zomato", example: "Zomato 47 dinner" },
+  { label: "Food Delivery", categoryName: "Food Delivery", example: "Ordered 50 from abad hind" },
   { label: "Instashop", categoryName: "Instashop", example: "Instashop 120 groceries" },
   { label: "Salary", categoryName: "Salary", example: "Salary 10000 credit" },
   { label: "Offset", categoryName: "Offset", example: "Transfer 5000 to Offset" },

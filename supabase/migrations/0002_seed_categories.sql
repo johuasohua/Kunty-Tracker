@@ -6,7 +6,7 @@ insert into categories (name, treat_as, color, icon, sort_order) values
   ('Salary',       'income',  '#34C759', 'wallet',        0),
   ('Investments',  'income',  '#30B0C7', 'trending-up',   1),
   ('Instashop',    'expense', '#FF9500', 'shopping-cart', 10),
-  ('Zomato',       'expense', '#FF3B30', 'utensils',      11),
+  ('Food Delivery','expense', '#FF3B30', 'utensils',      11),
   ('Bills',        'expense', '#5856D6', 'receipt',       12),
   ('Taxi',         'expense', '#FFCC00', 'car',           13),
   ('Shopping',     'expense', '#FF2D55', 'shopping-bag',  14),
