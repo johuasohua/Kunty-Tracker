@@ -16,7 +16,6 @@ export function PaymentBreakdownCard({
 
   const principalPct = totalPayments > 0 ? (totalPrincipal / totalPayments) * 100 : 0;
   const interestPct = totalPayments > 0 ? (totalInterest / totalPayments) * 100 : 0;
-  const hoiPct = totalPayments > 0 ? (totalHoi / totalPayments) * 100 : 0;
 
   return (
     <Card className="p-4">
@@ -63,27 +62,6 @@ export function PaymentBreakdownCard({
             <div
               className="h-full bg-ios-red"
               style={{ width: `${interestPct}%` }}
-            />
-          </div>
-        </div>
-
-        {/* HOI */}
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[13px] text-ios-label-secondary">HOI</span>
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-medium text-ios-label">
-                {formatMoney(totalHoi)}
-              </span>
-              <span className="text-[14px] font-semibold text-ios-orange">
-                {hoiPct.toFixed(1)}%
-              </span>
-            </div>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-ios-fill">
-            <div
-              className="h-full bg-ios-orange"
-              style={{ width: `${hoiPct}%` }}
             />
           </div>
         </div>
