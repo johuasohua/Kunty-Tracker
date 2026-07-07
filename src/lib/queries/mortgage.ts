@@ -143,18 +143,25 @@ export async function syncLedgerForCategoryTransaction(input: {
   }
 
   // Mortgage payment → next period, amount as principal until split is edited.
+  // Automatically deduct the full payment amount from offset account.
   const opening = last?.closing_principal ?? 0;
+  const offsetOpening = last?.offset_closing_balance ?? null;
+  const insuranceAmount = last?.insurance_amount ?? 0;
+  const hoiAmount = last?.hoi_charge ?? 105;
+  const totalPayment = input.amount + insuranceAmount + hoiAmount;
+  const offsetClosing = offsetOpening !== null ? offsetOpening - totalPayment : null;
+
   await createMortgagePayment({
     period_no: (last?.period_no ?? 0) + 1,
     payment_date: input.occurredOn,
     opening_principal: opening,
     principal_amount: input.amount,
     interest_amount: 0,
-    insurance_amount: last?.insurance_amount ?? 0,
-    hoi_charge: last?.hoi_charge ?? 105,
+    insurance_amount: insuranceAmount,
+    hoi_charge: hoiAmount,
     closing_principal: opening - input.amount,
-    offset_opening_balance: last?.offset_closing_balance ?? null,
-    offset_closing_balance: last?.offset_closing_balance ?? null,
+    offset_opening_balance: offsetOpening,
+    offset_closing_balance: offsetClosing,
     offset_note: "Auto-logged from transaction — edit P/I split",
   });
   return "mortgage-period";

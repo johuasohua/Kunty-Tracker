@@ -62,7 +62,20 @@ export function AddPaymentSheet({
 
   const openingNum = parseFloat(openingPrincipal) || 0;
   const principalNum = parseFloat(principal) || 0;
+  const interestNum = parseFloat(interest) || 0;
+  const insuranceNum = parseFloat(insurance) || 0;
+  const hoiNum = parseFloat(hoi) || 0;
+  const offsetOpeningNum = parseFloat(offsetOpening) || 0;
+  const offsetTxNum = parseFloat(offsetTxAmount) || 0;
+
   const closingPreview = openingNum - principalNum;
+
+  // Automatically calculate offset closing balance:
+  // opening - mortgage payment total - ad-hoc withdrawal + ad-hoc deposit
+  const totalPayment = principalNum + interestNum + insuranceNum + hoiNum;
+  const autoOffsetClosing = offsetOpeningNum > 0
+    ? offsetOpeningNum - totalPayment + offsetTxNum
+    : null;
 
   async function handleSave() {
     if (!openingPrincipal || !principal || !interest) {
@@ -77,14 +90,14 @@ export function AddPaymentSheet({
         payment_date: paymentDate,
         opening_principal: openingNum,
         principal_amount: principalNum,
-        interest_amount: parseFloat(interest) || 0,
-        insurance_amount: parseFloat(insurance) || 0,
-        hoi_charge: parseFloat(hoi) || 0,
+        interest_amount: interestNum,
+        insurance_amount: insuranceNum,
+        hoi_charge: hoiNum,
         closing_principal: closingPreview,
         offset_opening_balance: offsetOpening ? parseFloat(offsetOpening) : null,
-        offset_closing_balance: offsetClosing ? parseFloat(offsetClosing) : null,
+        offset_closing_balance: offsetClosing ? parseFloat(offsetClosing) : autoOffsetClosing,
         interest_saved: interestSaved ? parseFloat(interestSaved) : null,
-        offset_transaction_amount: offsetTxAmount ? parseFloat(offsetTxAmount) : null,
+        offset_transaction_amount: offsetTxNum || null,
         offset_note: offsetNote || null,
       });
       onSaved();
@@ -175,12 +188,22 @@ export function AddPaymentSheet({
               />
             </Field>
             <Field label="Offset Closing Balance">
-              <input
-                inputMode="decimal"
-                value={offsetClosing}
-                onChange={(e) => setOffsetClosing(e.target.value)}
-                className="w-full rounded-xl border border-ios-separator bg-ios-bg px-3.5 py-2.5 text-[15px] text-ios-label outline-none focus:border-ios-blue"
-              />
+              {offsetOpening && !offsetClosing ? (
+                <div className="flex items-center justify-between rounded-xl border border-ios-separator bg-ios-fill px-3.5 py-2.5 text-[15px]">
+                  <span className="font-semibold text-ios-label">
+                    {autoOffsetClosing !== null ? autoOffsetClosing.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}
+                  </span>
+                  <span className="text-[11px] uppercase tracking-wide text-ios-label-secondary">auto</span>
+                </div>
+              ) : (
+                <input
+                  inputMode="decimal"
+                  value={offsetClosing}
+                  onChange={(e) => setOffsetClosing(e.target.value)}
+                  placeholder="Optional: override auto-calc"
+                  className="w-full rounded-xl border border-ios-separator bg-ios-bg px-3.5 py-2.5 text-[15px] text-ios-label outline-none focus:border-ios-blue"
+                />
+              )}
             </Field>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">
