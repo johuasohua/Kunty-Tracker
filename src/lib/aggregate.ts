@@ -291,7 +291,7 @@ export type ReviewSeverity = "warn" | "info" | "good";
 
 export interface ReviewItem {
   id: string;
-  kind: "spike" | "over-budget" | "under-budget" | "anomaly" | "cashflow";
+  kind: "spike" | "over-budget" | "under-budget" | "anomaly" | "cashflow" | "forecast";
   categoryId?: string;
   title: string;
   detail: string;
@@ -319,7 +319,8 @@ export function computeMonthlyReview(
   categories: Category[],
   budgets: Budget[],
   people: Person[],
-  month: Date
+  month: Date,
+  now: Date = new Date()
 ): MonthlyReview {
   const key = monthKey(month);
   const previousMonth = new Date(month.getFullYear(), month.getMonth() - 1, 1);
@@ -340,6 +341,10 @@ export function computeMonthlyReview(
 
   const items: ReviewItem[] = [];
 
+  // Forward-looking projection for the current, in-progress month. Null for
+  // past/complete months, so historical reviews stay purely retrospective.
+  const forecast = computeSpendForecast(transactions, categories, budgets, people, month, now);
+
   // Cash-flow warning: spent more than earned.
   if (totalIncome > 0 && totalExpense > totalIncome) {
     items.push({
@@ -351,6 +356,29 @@ export function computeMonthlyReview(
       )}.`,
       recommendation: "Trim the largest categories below, or move funds from savings.",
       severity: "warn",
+    });
+  }
+
+  // Month-end projection headline (current month only).
+  if (forecast) {
+    const trendingUp =
+      forecast.previousExpense !== null &&
+      forecast.projectedExpense > forecast.previousExpense * 1.1;
+    items.push({
+      id: "forecast",
+      kind: "forecast",
+      title: `On pace to spend ~${money(forecast.projectedExpense)} this month`,
+      detail:
+        `${money(forecast.actualExpense)} spent in the first ${forecast.daysElapsed} of ` +
+        `${forecast.daysInMonth} days.` +
+        (forecast.previousExpense !== null
+          ? ` Last month totalled ${money(forecast.previousExpense)}.`
+          : ""),
+      recommendation: trendingUp
+        ? "Trending higher than last month — watch the categories below."
+        : undefined,
+      severity:
+        totalIncome > 0 && forecast.projectedExpense > totalIncome ? "warn" : "info",
     });
   }
 
@@ -389,8 +417,26 @@ export function computeMonthlyReview(
       });
     }
   }
-  // Positive note when budgets exist and none are blown.
-  if (budgetEntries.length > 0 && overBudgetCount === 0) {
+  // Budgets not yet blown but on pace to be, by month-end run-rate. Surfaced
+  // as a warning so you can course-correct before the over-budget item fires.
+  const forecastRisks = forecast?.budgetRisks ?? [];
+  for (const risk of forecastRisks) {
+    items.push({
+      id: `forecast-budget-${risk.category.id}`,
+      kind: "forecast",
+      categoryId: risk.category.id,
+      title: `${risk.category.name} on pace to exceed budget`,
+      detail: `Projected ${money(risk.projected)} vs ${money(risk.budget)} budget (${money(
+        risk.actual
+      )} spent so far).`,
+      recommendation: `Ease off ${risk.category.name} to stay under.`,
+      severity: "warn",
+    });
+  }
+
+  // Positive note only when nothing is over *and* nothing is projected over —
+  // otherwise the forecast warnings above would contradict a rosy "all clear".
+  if (budgetEntries.length > 0 && overBudgetCount === 0 && forecastRisks.length === 0) {
     items.push({
       id: "budgets-on-track",
       kind: "under-budget",
@@ -430,6 +476,90 @@ export function computeMonthlyReview(
     previousExpense: hasPrevious ? previousExpense : null,
     expenseDelta,
     items,
+  };
+}
+
+export interface BudgetForecastRisk {
+  category: Category;
+  actual: number; // spent so far this month
+  budget: number; // monthly budget total
+  projected: number; // run-rate projection for month-end
+}
+
+export interface SpendForecast {
+  daysElapsed: number;
+  daysInMonth: number;
+  actualExpense: number; // total expense so far this month
+  projectedExpense: number; // run-rate projection for month-end
+  previousExpense: number | null; // last month's total, for comparison
+  budgetRisks: BudgetForecastRisk[]; // budgets on pace to be exceeded
+}
+
+/**
+ * Forward-looking month-end projection for the *current* in-progress month.
+ * Uses a simple run-rate: scale spend-so-far by (days in month ÷ days elapsed).
+ * This is the predictive counterpart to the otherwise-backward-looking review —
+ * it warns while there's still time to act, rather than after a budget is blown.
+ *
+ * Returns null when `month` isn't the current calendar month, or it's too early
+ * (<5 days in) / already complete to project meaningfully. Pure and testable:
+ * `now` is injectable.
+ */
+export function computeSpendForecast(
+  transactions: LightTransaction[],
+  categories: Category[],
+  budgets: Budget[],
+  people: Person[],
+  month: Date,
+  now: Date = new Date()
+): SpendForecast | null {
+  const isCurrentMonth =
+    month.getFullYear() === now.getFullYear() &&
+    month.getMonth() === now.getMonth();
+  if (!isCurrentMonth) return null;
+
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysElapsed = now.getDate();
+  // Too early to project reliably, or the month is effectively over.
+  if (daysElapsed < 5 || daysElapsed >= daysInMonth) return null;
+
+  const factor = daysInMonth / daysElapsed;
+
+  const breakdown = breakdownByCategory(transactions, categories, month);
+  const actualExpense = breakdown.reduce((sum, b) => sum + b.total, 0);
+  const projectedExpense = actualExpense * factor;
+
+  const previousMonth = new Date(month.getFullYear(), month.getMonth() - 1, 1);
+  const previousBreakdown = breakdownByCategory(transactions, categories, previousMonth);
+  const previousExpense = previousBreakdown.reduce((sum, b) => sum + b.total, 0);
+  const hasPrevious = previousBreakdown.some((b) => b.total !== 0);
+
+  const budgetEntries = computeBudgetProgress(budgets, categories, transactions, people, month);
+  const budgetRisks: BudgetForecastRisk[] = [];
+  for (const entry of budgetEntries) {
+    if (entry.totalBudget <= 0) continue;
+    // Skip categories already over budget — the over-budget review item covers
+    // those. Forecast is only interesting for budgets not yet blown.
+    if (entry.totalActual > entry.totalBudget * 1.05) continue;
+    const projected = entry.totalActual * factor;
+    if (projected > entry.totalBudget * 1.05) {
+      budgetRisks.push({
+        category: entry.category,
+        actual: entry.totalActual,
+        budget: entry.totalBudget,
+        projected,
+      });
+    }
+  }
+  budgetRisks.sort((a, b) => b.projected / b.budget - a.projected / a.budget);
+
+  return {
+    daysElapsed,
+    daysInMonth,
+    actualExpense,
+    projectedExpense,
+    previousExpense: hasPrevious ? previousExpense : null,
+    budgetRisks,
   };
 }
 

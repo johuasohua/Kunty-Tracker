@@ -102,7 +102,7 @@ function ReviewRow({
   const tappable = !!item.categoryId;
   const content = (
     <>
-      <SeverityIcon severity={item.severity} />
+      <ReviewIcon item={item} />
       <div className="min-w-0 flex-1">
         <p className="text-[14px] font-medium text-ios-label">{item.title}</p>
         <p className="text-[13px] text-ios-label-secondary">{item.detail}</p>
@@ -128,15 +128,26 @@ function ReviewRow({
   );
 }
 
-function SeverityIcon({ severity }: { severity: ReviewItem["severity"] }) {
-  if (severity === "good") {
+function ReviewIcon({ item }: { item: ReviewItem }) {
+  // Forecast items are forward-looking — a trend icon reads clearer than a
+  // generic info/warning dot, tinted by severity (orange = at risk).
+  if (item.kind === "forecast") {
+    const tone =
+      item.severity === "warn" ? "bg-ios-orange/15 text-ios-orange" : "bg-ios-blue/15 text-ios-blue";
+    return (
+      <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${tone}`}>
+        <TrendingUp size={13} />
+      </div>
+    );
+  }
+  if (item.severity === "good") {
     return (
       <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ios-green/15 text-ios-green">
         <CheckCircle2 size={13} />
       </div>
     );
   }
-  if (severity === "info") {
+  if (item.severity === "info") {
     return (
       <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ios-blue/15 text-ios-blue">
         <Info size={13} />
