@@ -18,9 +18,16 @@ export default function MortgagePage() {
   const { categories } = useCategories();
   const { payments, loading, refresh } = useMortgagePayments();
   const [logOpen, setLogOpen] = useState(false);
+  const [refreshCount, setRefreshCount] = useState(0);
 
   const lastPayment = payments[payments.length - 1] ?? null;
   const offsetCategoryId = categories.find((c) => c.name.toLowerCase() === "offset")?.id;
+
+  const handleTransactionSaved = () => {
+    // Refresh both mortgage and offset data when a transaction is logged
+    refresh();
+    setRefreshCount((c) => c + 1);
+  };
 
   return (
     <div className="px-4 md:px-0">
@@ -57,7 +64,7 @@ export default function MortgagePage() {
           </div>
 
           <div className="mb-6">
-            <OffsetPanel />
+            <OffsetPanel refreshTrigger={refreshCount} />
           </div>
 
           <div className="mb-6">
@@ -75,7 +82,7 @@ export default function MortgagePage() {
       <LogTransactionSheet
         open={logOpen}
         onClose={() => setLogOpen(false)}
-        onSaved={refresh}
+        onSaved={handleTransactionSaved}
         lastPayment={lastPayment}
         offsetCategoryId={offsetCategoryId}
       />

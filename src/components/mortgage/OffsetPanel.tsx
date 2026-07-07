@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronRight, PiggyBank } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { formatMoney } from "@/lib/format";
 import { useOffsetAccount } from "@/lib/queries/offset";
 import { OffsetHistorySheet } from "@/components/mortgage/OffsetHistorySheet";
 
-export function OffsetPanel() {
-  const { periods } = useOffsetAccount();
+export function OffsetPanel({ refreshTrigger }: { refreshTrigger?: number } = {}) {
+  const { periods, refresh } = useOffsetAccount();
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Re-fetch offset data on mount and whenever refreshTrigger changes
+  useEffect(() => {
+    refresh();
+  }, [refreshTrigger, refresh]);
 
   // Earliest period = where offset started
   const firstPeriod = periods[0] ?? null;
