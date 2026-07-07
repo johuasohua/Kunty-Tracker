@@ -6,64 +6,64 @@ import { clsx } from "clsx";
 import type { Person } from "@/lib/types";
 import type { TransactionFilters } from "@/lib/queries/transactions";
 
-function getMonthLabel(dateStr: string): string {
-  const [year, month] = dateStr.split("-");
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+// --- month helpers -------------------------------------------------------
+
+function currentMonthStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function getMonthFromDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
+function monthLabelShort(monthStr: string): string {
+  const [y, m] = monthStr.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
 }
 
-function getMonthDateRange(monthStr: string): [string, string] {
-  const [year, month] = monthStr.split("-").map(Number);
-  const from = `${monthStr}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
-  const to = `${monthStr}-${String(lastDay).padStart(2, "0")}`;
-  return [from, to];
+function monthStart(monthStr: string): string {
+  return `${monthStr}-01`;
 }
 
-function getMonthsAround(centerMonth: string, count: number = 13): string[] {
-  const [year, month] = centerMonth.split("-").map(Number);
-  const months: string[] = [];
-  const halfCount = Math.floor(count / 2);
-
-  for (let i = -halfCount; i <= halfCount; i++) {
-    let m = month + i;
-    let y = year;
-    while (m < 1) {
-      m += 12;
-      y -= 1;
-    }
-    while (m > 12) {
-      m -= 12;
-      y += 1;
-    }
-    months.push(`${y}-${String(m).padStart(2, "0")}`);
-  }
-
-  return months;
+function monthEnd(monthStr: string): string {
+  const [y, m] = monthStr.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return `${monthStr}-${String(lastDay).padStart(2, "0")}`;
 }
+
+function shiftMonth(monthStr: string, delta: number): string {
+  const [y, m] = monthStr.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** A window of selectable months, newest first, ending at the current month. */
+function monthOptions(count = 24): string[] {
+  const cur = currentMonthStr();
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) out.push(shiftMonth(cur, -i));
+  return out;
+}
+
+// --- generic month dropdown ---------------------------------------------
 
 function MonthDropdown({
-  currentMonth,
+  label,
+  value,
+  options,
   onChange,
 }: {
-  currentMonth: string;
+  label: string;
+  value: string | undefined;
+  options: string[];
   onChange: (month: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const months = getMonthsAround(currentMonth);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     if (open) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -73,14 +73,15 @@ function MonthDropdown({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-lg border border-ios-separator bg-ios-bg-secondary px-3 py-1.5 text-[14px] text-ios-label"
+        className="flex items-center gap-1.5 rounded-lg border border-ios-separator bg-ios-bg-secondary px-3 py-1.5 text-[13px] text-ios-label"
       >
-        {getMonthLabel(currentMonth + "-01")}
-        <ChevronDown size={14} className={clsx(open && "rotate-180")} />
+        <span className="text-ios-label-secondary">{label}</span>
+        {value ? monthLabelShort(value) : "—"}
+        <ChevronDown size={13} className={clsx(open && "rotate-180")} />
       </button>
       {open && (
         <div className="absolute left-0 top-full z-20 mt-1 max-h-64 w-40 overflow-y-auto rounded-lg border border-ios-separator bg-ios-bg-secondary shadow-lg">
-          {months.map((m) => (
+          {options.map((m) => (
             <button
               key={m}
               onClick={() => {
@@ -89,12 +90,12 @@ function MonthDropdown({
               }}
               className={clsx(
                 "block w-full px-3 py-2 text-left text-[14px]",
-                currentMonth === m
-                  ? "bg-ios-blue text-white font-medium"
+                value === m
+                  ? "bg-ios-blue font-medium text-white"
                   : "text-ios-label hover:bg-ios-fill"
               )}
             >
-              {getMonthLabel(m + "-01")}
+              {monthLabelShort(m)}
             </button>
           ))}
         </div>
@@ -118,9 +119,7 @@ function PersonDropdown({
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     if (open) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -130,10 +129,10 @@ function PersonDropdown({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-lg border border-ios-separator bg-ios-bg-secondary px-3 py-1.5 text-[14px] text-ios-label"
+        className="flex items-center gap-1.5 rounded-lg border border-ios-separator bg-ios-bg-secondary px-3 py-1.5 text-[13px] text-ios-label"
       >
         {selectedPerson ? selectedPerson.name : "All people"}
-        <ChevronDown size={14} className={clsx(open && "rotate-180")} />
+        <ChevronDown size={13} className={clsx(open && "rotate-180")} />
       </button>
       {open && (
         <div className="absolute right-0 top-full z-20 mt-1 w-36 rounded-lg border border-ios-separator bg-ios-bg-secondary shadow-lg">
@@ -145,7 +144,7 @@ function PersonDropdown({
             className={clsx(
               "block w-full px-3 py-2 text-left text-[14px]",
               !selected
-                ? "bg-ios-blue text-white font-medium"
+                ? "bg-ios-blue font-medium text-white"
                 : "text-ios-label hover:bg-ios-fill"
             )}
           >
@@ -161,7 +160,7 @@ function PersonDropdown({
               className={clsx(
                 "block w-full px-3 py-2 text-left text-[14px]",
                 selected === p.id
-                  ? "bg-ios-blue text-white font-medium"
+                  ? "bg-ios-blue font-medium text-white"
                   : "text-ios-label hover:bg-ios-fill"
               )}
             >
@@ -174,6 +173,41 @@ function PersonDropdown({
   );
 }
 
+// --- presets -------------------------------------------------------------
+
+type PresetId = "this" | "3m" | "6m" | "all";
+
+function presetRange(id: PresetId): { from?: string; to?: string } {
+  const cur = currentMonthStr();
+  switch (id) {
+    case "this":
+      return { from: monthStart(cur), to: monthEnd(cur) };
+    case "3m":
+      return { from: monthStart(shiftMonth(cur, -2)), to: monthEnd(cur) };
+    case "6m":
+      return { from: monthStart(shiftMonth(cur, -5)), to: monthEnd(cur) };
+    case "all":
+      return { from: undefined, to: undefined };
+  }
+}
+
+const PRESETS: Array<{ id: PresetId; label: string }> = [
+  { id: "this", label: "This month" },
+  { id: "3m", label: "Last 3M" },
+  { id: "6m", label: "Last 6M" },
+  { id: "all", label: "All time" },
+];
+
+function activePreset(filters: TransactionFilters): PresetId | null {
+  if (!filters.from && !filters.to) return "all";
+  for (const p of PRESETS) {
+    if (p.id === "all") continue;
+    const r = presetRange(p.id);
+    if (r.from === filters.from && r.to === filters.to) return p.id;
+  }
+  return null; // custom range
+}
+
 export function QuickFilters({
   filters,
   onChange,
@@ -183,32 +217,76 @@ export function QuickFilters({
   onChange: (filters: TransactionFilters) => void;
   people: Person[];
 }) {
-  const currentMonth = getMonthFromDate(new Date());
-  const monthStr =
-    filters.from && filters.from.startsWith(currentMonth.substring(0, 7))
-      ? currentMonth.substring(0, 7)
-      : filters.from?.substring(0, 7) ?? currentMonth;
+  const current = activePreset(filters);
+  const options = monthOptions();
 
-  const handleMonthSelect = (month: string) => {
-    const [from, to] = getMonthDateRange(month);
-    onChange({ ...filters, from, to });
+  const fromMonth = filters.from?.substring(0, 7);
+  const toMonth = filters.to?.substring(0, 7);
+
+  const applyPreset = (id: PresetId) => {
+    const r = presetRange(id);
+    onChange({ ...filters, from: r.from, to: r.to });
   };
 
-  const handlePersonSelect = (personId: string | undefined) => {
-    onChange({
-      ...filters,
-      personId,
-    });
+  const handleFrom = (month: string) => {
+    // Keep the range valid: never let From land after To.
+    const to =
+      toMonth && month > toMonth ? monthEnd(month) : filters.to ?? monthEnd(month);
+    onChange({ ...filters, from: monthStart(month), to });
+  };
+
+  const handleTo = (month: string) => {
+    const from =
+      fromMonth && month < fromMonth ? monthStart(month) : filters.from ?? monthStart(month);
+    onChange({ ...filters, from, to: monthEnd(month) });
   };
 
   return (
-    <div className="mb-3 flex flex-wrap gap-2">
-      <MonthDropdown currentMonth={monthStr} onChange={handleMonthSelect} />
-      <PersonDropdown
-        selected={filters.personId}
-        people={people}
-        onChange={handlePersonSelect}
-      />
+    <div className="mb-3 space-y-2">
+      {/* Presets + person */}
+      <div className="flex flex-wrap items-center gap-2">
+        {PRESETS.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => applyPreset(p.id)}
+            className={clsx(
+              "rounded-full px-3 py-1 text-[13px] font-medium transition-colors",
+              current === p.id
+                ? "bg-ios-blue text-white"
+                : "bg-ios-fill text-ios-label active:bg-ios-fill-secondary"
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+        <div className="ml-auto">
+          <PersonDropdown
+            selected={filters.personId}
+            people={people}
+            onChange={(personId) => onChange({ ...filters, personId })}
+          />
+        </div>
+      </div>
+
+      {/* Explicit range */}
+      <div className="flex flex-wrap items-center gap-2">
+        <MonthDropdown
+          label="From"
+          value={fromMonth}
+          options={options}
+          onChange={handleFrom}
+        />
+        <span className="text-ios-label-tertiary">–</span>
+        <MonthDropdown
+          label="To"
+          value={toMonth}
+          options={options}
+          onChange={handleTo}
+        />
+        {current === null && (
+          <span className="text-[12px] font-medium text-ios-blue">Custom</span>
+        )}
+      </div>
     </div>
   );
 }

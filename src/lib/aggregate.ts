@@ -7,6 +7,7 @@ import type {
   Person,
   RecurringBill,
   RecurringFrequency,
+  TransactionType,
 } from "@/lib/types";
 import type {
   LightTransaction,
@@ -1372,5 +1373,100 @@ export function computeCashDeployment({
     investAmount,
     offsetAnnualInterestSaved: opt?.annualInterestSaved ?? 0,
     offsetMonthsSooner: opt?.monthsSooner ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Filtered-result summary — totals + per-month trend for the transactions view
+// ---------------------------------------------------------------------------
+
+/** Minimal transaction shape the summary needs (works for Transaction too). */
+interface SummarizableTransaction {
+  occurred_on: string;
+  amount: number;
+  type: TransactionType;
+  category_id: string;
+}
+
+export interface FilterSummary {
+  total: number; // signed: offset categories reduce the total, like spend elsewhere
+  count: number; // number of transactions counted
+  months: Array<{ key: string; amount: number }>; // gap-free, oldest → newest
+  monthsInRange: number;
+  avgPerMonth: number;
+  trend: "up" | "down" | "flat";
+}
+
+/** Chronological, gap-free month keys spanning [from, to] inclusive. */
+function monthKeysInRange(from: string, to: string): string[] {
+  const [fy, fm] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  const keys: string[] = [];
+  let y = fy;
+  let m = fm;
+  // Cap at 10 years of buckets so a malformed range can't spin forever.
+  for (let i = 0; i < 120 && (y < ty || (y === ty && m <= tm)); i++) {
+    keys.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return keys;
+}
+
+/** Trend across the range: first non-zero month vs last non-zero month, 10%
+ * threshold — matching the 3-month spend-analysis convention. */
+function seriesTrend(months: Array<{ amount: number }>): "up" | "down" | "flat" {
+  const nonZero = months.filter((m) => m.amount !== 0);
+  if (nonZero.length < 2) return "flat";
+  const first = nonZero[0].amount;
+  const last = nonZero[nonZero.length - 1].amount;
+  if (last > first * 1.1) return "up";
+  if (last < first * 0.9) return "down";
+  return "flat";
+}
+
+/**
+ * Summarise an already-filtered set of transactions over a month range: total,
+ * count, per-month series (gap-free across the range), average per month, and a
+ * trend. Offset categories reduce the total, mirroring how "spend" is treated
+ * across the app. Pure — the caller passes exactly the rows on screen.
+ */
+export function summarizeTransactions(
+  transactions: SummarizableTransaction[],
+  categories: Category[],
+  from: string, // yyyy-mm-dd inclusive
+  to: string // yyyy-mm-dd inclusive
+): FilterSummary {
+  const treatAs = categoryTreatAsMap(categories);
+  const keys = monthKeysInRange(from, to);
+  const bucket = new Map<string, number>(keys.map((k) => [k, 0]));
+
+  let total = 0;
+  let count = 0;
+  for (const t of transactions) {
+    const key = monthKey(new Date(t.occurred_on));
+    if (!bucket.has(key)) continue; // outside the range
+    let signed = t.amount;
+    if (t.type === "expense" && treatAs.get(t.category_id) === "offset") {
+      signed = -t.amount;
+    }
+    bucket.set(key, (bucket.get(key) ?? 0) + signed);
+    total += signed;
+    count += 1;
+  }
+
+  const months = keys.map((k) => ({ key: k, amount: bucket.get(k) ?? 0 }));
+  const monthsInRange = keys.length;
+
+  return {
+    total,
+    count,
+    months,
+    monthsInRange,
+    avgPerMonth: monthsInRange > 0 ? total / monthsInRange : 0,
+    trend: seriesTrend(months),
   };
 }

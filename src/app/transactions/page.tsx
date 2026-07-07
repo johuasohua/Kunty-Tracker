@@ -11,12 +11,16 @@ import {
   useTransactions,
   type TransactionFilters,
 } from "@/lib/queries/transactions";
-import { buildThreeMonthSpendAnalysis } from "@/lib/aggregate";
+import {
+  buildThreeMonthSpendAnalysis,
+  summarizeTransactions,
+} from "@/lib/aggregate";
 import { QuickAddSheet } from "@/components/transactions/QuickAddSheet";
 import { EditTransactionSheet } from "@/components/transactions/EditTransactionSheet";
 import { FilterSheet } from "@/components/transactions/FilterSheet";
 import { QuickFilters } from "@/components/transactions/QuickFilters";
 import { SpendAnalysisChart } from "@/components/transactions/SpendAnalysisChart";
+import { FilterInsight } from "@/components/transactions/FilterInsight";
 import { TransactionMobileList } from "@/components/transactions/TransactionMobileList";
 import { TransactionTableRow } from "@/components/transactions/TransactionTableRow";
 import { DesktopEntryForm } from "@/components/transactions/DesktopEntryForm";
@@ -81,6 +85,54 @@ function TransactionsPageContent() {
     return buildThreeMonthSpendAnalysis(transactions, categories, new Date());
   }, [transactions, categories]);
 
+  // A narrowing filter is active when the user has picked a category, person,
+  // date range, type or payment method — i.e. they're asking a question.
+  const filterActive =
+    (filters.categoryIds?.length ?? 0) > 0 ||
+    !!filters.personId ||
+    !!filters.from ||
+    !!filters.to ||
+    !!filters.type ||
+    !!filters.paymentMethod;
+
+  // A focused summary of the current selection: total, avg/month, count and a
+  // per-month trend. Range defaults to the visible span when none is picked.
+  const insight = useMemo(() => {
+    if (!filterActive || visibleTransactions.length === 0) return null;
+    const dates = visibleTransactions.map((t) => t.occurred_on).sort();
+    const from = filters.from ?? dates[0];
+    const to = filters.to ?? dates[dates.length - 1];
+    if (!from || !to) return null;
+
+    const summary = summarizeTransactions(visibleTransactions, categories, from, to);
+
+    const cat =
+      filters.categoryIds?.length === 1
+        ? categories.find((c) => c.id === filters.categoryIds![0])
+        : undefined;
+    const person = filters.personId
+      ? people.find((p) => p.id === filters.personId)
+      : undefined;
+    const titleParts = [
+      cat?.name ?? (filters.categoryIds?.length ? "Multiple categories" : "All spending"),
+      person?.name,
+    ].filter(Boolean);
+
+    const fmtMonth = (d: string) =>
+      new Date(d).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    const fromM = from.substring(0, 7);
+    const toM = to.substring(0, 7);
+    const rangeLabel =
+      fromM === toM ? fmtMonth(from) : `${fmtMonth(from)} – ${fmtMonth(to)}`;
+
+    return {
+      summary,
+      title: titleParts.join(" · "),
+      rangeLabel,
+      accentColor: cat?.color ?? "#007AFF",
+    };
+  }, [filterActive, visibleTransactions, filters, categories, people]);
+
   const activeFilterCount =
     (filters.categoryIds?.length ?? 0) +
     (filters.personId ? 1 : 0) +
@@ -122,10 +174,21 @@ function TransactionsPageContent() {
         <SpeakTransactionButton />
       </div>
 
-      {spendAnalysis.length > 0 && (
+      {insight ? (
         <div className="mb-6">
-          <SpendAnalysisChart data={spendAnalysis} />
+          <FilterInsight
+            summary={insight.summary}
+            title={insight.title}
+            rangeLabel={insight.rangeLabel}
+            accentColor={insight.accentColor}
+          />
         </div>
+      ) : (
+        spendAnalysis.length > 0 && (
+          <div className="mb-6">
+            <SpendAnalysisChart data={spendAnalysis} />
+          </div>
+        )
       )}
 
       <div className="relative mb-4">
