@@ -153,5 +153,12 @@ export async function syncLedgerForCategoryTransaction(input: {
     offset_closing_balance: offsetClosing,
     offset_note: "Auto-logged from transaction — edit P/I split",
   });
+
+  const { syncOffsetMortgageDeduction } = await import("@/lib/queries/offset");
+  await syncOffsetMortgageDeduction({
+    totalPayment,
+    occurredOn: input.occurredOn,
+  });
+
   return "mortgage-period";
 }

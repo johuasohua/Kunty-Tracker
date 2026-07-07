@@ -7,6 +7,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useProfile } from "@/lib/profile-context";
 import { createMortgagePayment } from "@/lib/queries/mortgage";
 import { createTransaction } from "@/lib/queries/transactions";
+import { syncOffsetMortgageDeduction } from "@/lib/queries/offset";
 import type { MortgagePayment } from "@/lib/types";
 
 function todayISO() {
@@ -94,6 +95,10 @@ export function LogTransactionSheet({
         offset_opening_balance: offsetOpening,
         offset_closing_balance: offsetClosing,
         interest_saved: interestSavedNum || null,
+      });
+      await syncOffsetMortgageDeduction({
+        totalPayment,
+        occurredOn: mortgageDate,
       });
       onSaved();
       onClose();

@@ -39,6 +39,9 @@ export function OffsetHistorySheet({
                 <th className="px-3 py-2.5 text-right font-semibold text-ios-label-secondary">
                   Deposit
                 </th>
+                <th className="px-3 py-2.5 text-right font-semibold text-ios-label-secondary">
+                  Mortgage Payment
+                </th>
                 <th className="px-3 py-2.5 text-left font-semibold text-ios-label-secondary">
                   Note
                 </th>
@@ -64,7 +67,10 @@ export function OffsetHistorySheet({
                     {formatMoney(p.closing_balance)}
                   </td>
                   <td className="px-3 py-3 text-right font-semibold text-ios-green">
-                    {formatMoney(p.transaction_amount)}
+                    {p.deposit_amount ? formatMoney(p.deposit_amount) : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-right font-semibold text-ios-red">
+                    {p.mortgage_deduction ? formatMoney(-p.mortgage_deduction) : "—"}
                   </td>
                   <td className="px-3 py-3 text-[12px] text-ios-label-secondary">
                     {p.transaction_note || "—"}

@@ -23,7 +23,8 @@ export function OffsetPanel({ refreshTrigger }: { refreshTrigger?: number } = {}
 
   const openingBalance = firstPeriod?.opening_balance ?? 0;
   const closingBalance = lastPeriod?.closing_balance ?? 0;
-  const lastDeposit = lastPeriod;
+  // Most recent period that actually had a deposit (not just a mortgage deduction)
+  const lastDeposit = [...periods].reverse().find((p) => p.deposit_amount > 0) ?? null;
 
   return (
     <>
@@ -51,7 +52,7 @@ export function OffsetPanel({ refreshTrigger }: { refreshTrigger?: number } = {}
           <Stat label="Closing Balance" value={closingBalance} emphasize />
           <Stat
             label="Last Deposit"
-            value={lastDeposit?.transaction_amount ?? 0}
+            value={lastDeposit?.deposit_amount ?? 0}
             tone="green"
             note={lastDeposit?.transaction_note ?? undefined}
           />
