@@ -57,7 +57,7 @@ export default function MortgagePage() {
           </div>
 
           <div className="mb-6">
-            <OffsetPanel payments={payments} />
+            <OffsetPanel />
           </div>
 
           <div className="mb-6">

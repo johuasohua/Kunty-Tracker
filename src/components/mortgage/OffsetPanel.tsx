@@ -4,25 +4,21 @@ import { useState } from "react";
 import { ChevronRight, PiggyBank } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { formatMoney } from "@/lib/format";
+import { useOffsetAccount } from "@/lib/queries/offset";
 import { OffsetHistorySheet } from "@/components/mortgage/OffsetHistorySheet";
-import type { MortgagePayment } from "@/lib/types";
 
-export function OffsetPanel({ payments }: { payments: MortgagePayment[] }) {
+export function OffsetPanel() {
+  const { periods } = useOffsetAccount();
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Earliest period with an offset opening balance = where the offset started.
-  const firstWithOpening = payments.find((p) => p.offset_opening_balance != null);
-  // Latest period with an offset closing balance = current offset balance.
-  const lastWithClosing = [...payments]
-    .reverse()
-    .find((p) => p.offset_closing_balance != null);
-  // Most recent ad-hoc deposit/withdrawal into the offset account.
-  const lastDeposit = [...payments]
-    .reverse()
-    .find((p) => p.offset_transaction_amount != null);
+  // Earliest period = where offset started
+  const firstPeriod = periods[0] ?? null;
+  // Latest period = current state
+  const lastPeriod = periods[periods.length - 1] ?? null;
 
-  const openingBalance = firstWithOpening?.offset_opening_balance ?? 0;
-  const closingBalance = lastWithClosing?.offset_closing_balance ?? 0;
+  const openingBalance = firstPeriod?.opening_balance ?? 0;
+  const closingBalance = lastPeriod?.closing_balance ?? 0;
+  const lastDeposit = lastPeriod;
 
   return (
     <>
@@ -50,9 +46,9 @@ export function OffsetPanel({ payments }: { payments: MortgagePayment[] }) {
           <Stat label="Closing Balance" value={closingBalance} emphasize />
           <Stat
             label="Last Deposit"
-            value={lastDeposit?.offset_transaction_amount ?? 0}
+            value={lastDeposit?.transaction_amount ?? 0}
             tone="green"
-            note={lastDeposit?.offset_note ?? undefined}
+            note={lastDeposit?.transaction_note ?? undefined}
           />
         </div>
       </Card>
@@ -60,7 +56,7 @@ export function OffsetPanel({ payments }: { payments: MortgagePayment[] }) {
       <OffsetHistorySheet
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
-        payments={payments}
+        periods={periods}
       />
     </>
   );

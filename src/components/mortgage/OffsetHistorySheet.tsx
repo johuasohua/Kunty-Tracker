@@ -2,26 +2,19 @@
 
 import { Sheet } from "@/components/ui/Sheet";
 import { formatMoney } from "@/lib/format";
-import type { MortgagePayment } from "@/lib/types";
+import type { OffsetAccountPeriod } from "@/lib/queries/offset";
 
 export function OffsetHistorySheet({
   open,
   onClose,
-  payments,
+  periods,
 }: {
   open: boolean;
   onClose: () => void;
-  payments: MortgagePayment[];
+  periods: OffsetAccountPeriod[];
 }) {
-  // Only periods that actually touched the offset account, newest first.
-  const rows = [...payments]
-    .filter(
-      (p) =>
-        p.offset_opening_balance != null ||
-        p.offset_closing_balance != null ||
-        p.offset_transaction_amount != null
-    )
-    .reverse();
+  // Newest first
+  const rows = [...periods].reverse();
 
   return (
     <Sheet open={open} onClose={onClose} title="Offset History">
@@ -38,30 +31,21 @@ export function OffsetHistorySheet({
             >
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-[14px] font-semibold text-ios-label">
-                  {new Date(p.payment_date).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {p.period_month}
                 </span>
-                {p.interest_saved != null && (
-                  <span className="text-[12px] text-ios-blue">
-                    Saved {formatMoney(p.interest_saved)}
-                  </span>
-                )}
               </div>
               <div className="grid grid-cols-3 gap-2 text-[13px]">
-                <Cell label="Opening" value={p.offset_opening_balance} />
-                <Cell label="Closing" value={p.offset_closing_balance} />
+                <Cell label="Opening" value={p.opening_balance} />
+                <Cell label="Closing" value={p.closing_balance} />
                 <Cell
                   label="Deposit"
-                  value={p.offset_transaction_amount}
+                  value={p.transaction_amount}
                   tone="green"
                 />
               </div>
-              {p.offset_note && (
+              {p.transaction_note && (
                 <div className="mt-1.5 text-[12px] text-ios-label-secondary">
-                  {p.offset_note}
+                  {p.transaction_note}
                 </div>
               )}
             </div>
