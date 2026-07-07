@@ -65,8 +65,6 @@ export function buildMonthlySeries(
     const kind = treatAs.get(t.category_id);
     if (t.type === "income") {
       bucket.income += t.amount;
-    } else if (kind === "offset") {
-      bucket.expense -= t.amount;
     } else {
       bucket.expense += t.amount;
     }
@@ -141,11 +139,10 @@ export function breakdownByCategory(
   for (const t of inMonth) {
     const entry = byCategory.get(t.category_id);
     if (!entry) continue;
-    const sign = entry.category.treat_as === "offset" ? -1 : 1;
-    entry.total += sign * t.amount;
-    entry.byPerson[t.person_id] = (entry.byPerson[t.person_id] ?? 0) + sign * t.amount;
+    entry.total += t.amount;
+    entry.byPerson[t.person_id] = (entry.byPerson[t.person_id] ?? 0) + t.amount;
     const accountKey = `${t.person_id}:${t.payment_method}`;
-    entry.byAccount[accountKey] = (entry.byAccount[accountKey] ?? 0) + sign * t.amount;
+    entry.byAccount[accountKey] = (entry.byAccount[accountKey] ?? 0) + t.amount;
   }
 
   return Array.from(byCategory.values()).sort((a, b) => b.total - a.total);
@@ -595,9 +592,8 @@ export function breakdownByCategoryForYear(
     if (d.getFullYear() !== year) continue;
     const entry = byCategory.get(t.category_id);
     if (!entry) continue;
-    const sign = entry.category.treat_as === "offset" ? -1 : 1;
-    entry.total += sign * t.amount;
-    entry.byMonth[d.getMonth()] += sign * t.amount;
+    entry.total += t.amount;
+    entry.byMonth[d.getMonth()] += t.amount;
   }
 
   return Array.from(byCategory.values()).sort((a, b) => b.total - a.total);
