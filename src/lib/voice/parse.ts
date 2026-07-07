@@ -356,7 +356,7 @@ function segmentToParsed(
     amount: signed,
     person: person?.name ?? "",
     category: category?.name ?? "",
-    note: buildNote(segment, category, ctx.people) ?? "",
+    note: buildNote(segment, category) ?? "",
     type: method,
   };
 }
@@ -428,10 +428,12 @@ export function parseSegment(segment: string, ctx: ParseContext): VoiceDraft {
   return parsedToDraft(segmentToParsed(segment, ctx, now), ctx, segment.trim());
 }
 
-/** Structural words stripped when distilling a note from raw speech. */
+/** Structural words stripped when distilling a note from raw speech.
+ * Note: preserves location prepositions (to, at, near, from) for context.
+ */
 const NOTE_FILLER = new RegExp(
   "\\b(?:" +
-    "spent|spend|paid|pay|cost|costs|bought|buy|for|on|of|to|the|a|an|" +
+    "spent|spend|paid|pay|cost|costs|bought|buy|for|on|of|the|a|an|" +
     "credit|debit|cash|bank|card|dirhams?|aed|dollars?|" +
     "yesterday|today|now|just|tomorrow|day before|ago|last|" +
     "sunday|monday|tuesday|wednesday|thursday|friday|saturday|days?|" +
@@ -443,14 +445,16 @@ const NOTE_FILLER = new RegExp(
 /**
  * Distil a short human note from the raw phrase by stripping the parts the
  * parser has already captured as structured fields — the amount, category,
- * person, payment method and date words — plus common filler. So "Kiki spent
- * 47 on Zomato yesterday for dinner" leaves just "dinner". Null when nothing
- * meaningful remains.
+ * and date words — plus common filler. So "Kiki spent 47 on Zomato yesterday
+ * for dinner" leaves "dinner". Location context like "to office" or "at home"
+ * is preserved. Null when nothing meaningful remains.
+ *
+ * Note: We now PRESERVE person names if they appear after location words
+ * (e.g., "picked up Kiki" → "picked up Kiki"), since this adds useful context.
  */
 function buildNote(
   segment: string,
-  category: Category | null,
-  people: Person[]
+  category: Category | null
 ): string | null {
   let note = ` ${segment} `;
   // Amounts (including "10k").
@@ -462,11 +466,17 @@ function buildNote(
       note = note.replace(new RegExp(`\\b${escapeRegExp(needle)}\\b`, "ig"), " ");
     }
   }
-  // Person names.
-  for (const p of people) {
-    note = note.replace(new RegExp(`\\b${escapeRegExp(p.name)}\\b`, "ig"), " ");
+
+  // Remove only the PRIMARY person from the start of the note (the one who paid).
+  // If other people names appear later (e.g., "picked up Kiki"), keep them.
+  // This preserves context like "picked up Kiki" or "with Josh" as notes.
+  const primaryPersonName = segment.match(/\b(josh|kiki)\b/i)?.[1];
+  if (primaryPersonName) {
+    // Only remove the first occurrence of the primary person's name
+    note = note.replace(new RegExp(`\\b${escapeRegExp(primaryPersonName)}\\b`, "i"), " ");
   }
-  // Structural filler + date words.
+
+  // Structural filler + date words (but NOT location prepositions).
   note = note.replace(NOTE_FILLER, " ");
   note = note.replace(/\s+/g, " ").trim();
   return note.length >= 3 ? note : null;
