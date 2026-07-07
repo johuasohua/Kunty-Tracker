@@ -23,7 +23,7 @@ export function PaymentHistoryTable({
 
   return (
     <Card className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-[13px]">
+      <table className="w-full min-w-[840px] border-collapse text-[13px]">
         <thead>
           <tr className="border-b border-ios-separator text-left text-ios-label-secondary">
             <th className="px-3 py-2">Date</th>
@@ -32,6 +32,9 @@ export function PaymentHistoryTable({
             <th className="px-3 py-2 text-right">Interest</th>
             <th className="px-3 py-2 text-right">Insurance</th>
             <th className="px-3 py-2 text-right">HOI</th>
+            <th className="px-3 py-2 text-right font-semibold text-ios-label">
+              Mortgage Payment
+            </th>
             <th className="px-3 py-2 text-right">Closing</th>
             <th className="px-3 py-2 text-right">Interest Saved</th>
             <th className="px-3 py-2" />
@@ -61,6 +64,14 @@ export function PaymentHistoryTable({
               </td>
               <td className="px-3 py-2 text-right text-ios-label-secondary">
                 {formatMoney(p.hoi_charge)}
+              </td>
+              <td className="px-3 py-2 text-right font-semibold text-ios-label">
+                {formatMoney(
+                  p.principal_amount +
+                    p.interest_amount +
+                    p.insurance_amount +
+                    p.hoi_charge
+                )}
               </td>
               <td className="px-3 py-2 text-right font-medium text-ios-label">
                 {formatMoney(p.closing_principal)}
