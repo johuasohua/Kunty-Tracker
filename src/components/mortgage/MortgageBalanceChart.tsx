@@ -13,15 +13,23 @@ import {
 import { Card } from "@/components/ui/Card";
 import { formatMoney, formatAxisTick } from "@/lib/format";
 import type { MortgagePayment } from "@/lib/types";
+import type { OffsetAccountPeriod } from "@/lib/queries/offset";
 
 export function MortgageBalanceChart({
   payments,
+  offsetPeriods,
 }: {
   payments: MortgagePayment[];
+  offsetPeriods?: OffsetAccountPeriod[];
 }) {
+  const offsetByMonth = new Map(
+    (offsetPeriods ?? []).map((p) => [p.period_month, p.closing_balance])
+  );
+
   const data = payments.map((p) => {
     const mortgageBalance = p.closing_principal;
-    const offsetBalance = p.offset_closing_balance ?? 0;
+    const paymentMonth = new Date(p.payment_date).toISOString().slice(0, 7); // YYYY-MM
+    const offsetBalance = offsetByMonth.get(paymentMonth) ?? 0;
     const effectiveDebt = Math.max(0, mortgageBalance - offsetBalance);
 
     return {

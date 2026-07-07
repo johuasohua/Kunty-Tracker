@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useCategories } from "@/lib/queries/categories";
 import { useMortgagePayments } from "@/lib/queries/mortgage";
+import { useOffsetAccount } from "@/lib/queries/offset";
 import { MortgageBalanceChart } from "@/components/mortgage/MortgageBalanceChart";
 import { InterestSavedCard } from "@/components/mortgage/InterestSavedCard";
 import { PaymentBreakdownCard } from "@/components/mortgage/PaymentBreakdownCard";
@@ -17,6 +18,7 @@ import { LogTransactionSheet } from "@/components/mortgage/LogTransactionSheet";
 export default function MortgagePage() {
   const { categories } = useCategories();
   const { payments, loading, refresh } = useMortgagePayments();
+  const { periods: offsetPeriods } = useOffsetAccount();
   const [logOpen, setLogOpen] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
 
@@ -68,7 +70,7 @@ export default function MortgagePage() {
           </div>
 
           <div className="mb-6">
-            <MortgageBalanceChart payments={payments} />
+            <MortgageBalanceChart payments={payments} offsetPeriods={offsetPeriods} />
           </div>
 
           <div className="mb-6">
