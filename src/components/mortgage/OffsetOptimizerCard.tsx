@@ -70,13 +70,20 @@ export function OffsetOptimizerCard({
         See what parking more in your offset account would do.
       </p>
 
-      {/* Amount being modelled */}
+      {/* Amount being modelled, anchored to the current offset balance */}
       <div className="mb-3 text-center">
         <div className="text-[11px] uppercase tracking-wide text-ios-label-tertiary">
           Move into offset
         </div>
         <div className="text-[28px] font-bold text-ios-label">
           {formatMoney(extra)}
+        </div>
+        <div className="mt-1 text-[12px] text-ios-label-secondary">
+          Offset {formatMoney(base.currentOffset)}{" "}
+          <span className="text-ios-label-tertiary">→</span>{" "}
+          <span className="font-semibold" style={{ color: OFFSET_TEAL }}>
+            {formatMoney(base.currentOffset + extra)}
+          </span>
         </div>
       </div>
 
