@@ -23,58 +23,58 @@ export function OffsetHistorySheet({
           No offset activity recorded yet.
         </p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {rows.map((p) => (
-            <div
-              key={p.id}
-              className="rounded-xl border border-ios-separator px-3 py-2.5"
-            >
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-[14px] font-semibold text-ios-label">
-                  {p.period_month}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-[13px]">
-                <Cell label="Opening" value={p.opening_balance} />
-                <Cell label="Closing" value={p.closing_balance} />
-                <Cell
-                  label="Deposit"
-                  value={p.transaction_amount}
-                  tone="green"
-                />
-              </div>
-              {p.transaction_note && (
-                <div className="mt-1.5 text-[12px] text-ios-label-secondary">
-                  {p.transaction_note}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="border-b border-ios-separator">
+                <th className="px-3 py-2.5 text-left font-semibold text-ios-label-secondary">
+                  Month
+                </th>
+                <th className="px-3 py-2.5 text-right font-semibold text-ios-label-secondary">
+                  Opening
+                </th>
+                <th className="px-3 py-2.5 text-right font-semibold text-ios-label-secondary">
+                  Closing
+                </th>
+                <th className="px-3 py-2.5 text-right font-semibold text-ios-label-secondary">
+                  Deposit
+                </th>
+                <th className="px-3 py-2.5 text-left font-semibold text-ios-label-secondary">
+                  Note
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((p, idx) => (
+                <tr
+                  key={p.id}
+                  className={
+                    idx !== rows.length - 1
+                      ? "border-b border-ios-separator"
+                      : ""
+                  }
+                >
+                  <td className="px-3 py-3 text-ios-label">
+                    <span className="font-semibold">{p.period_month}</span>
+                  </td>
+                  <td className="px-3 py-3 text-right text-ios-label">
+                    {formatMoney(p.opening_balance)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-semibold text-ios-label">
+                    {formatMoney(p.closing_balance)}
+                  </td>
+                  <td className="px-3 py-3 text-right font-semibold text-ios-green">
+                    {formatMoney(p.transaction_amount)}
+                  </td>
+                  <td className="px-3 py-3 text-[12px] text-ios-label-secondary">
+                    {p.transaction_note || "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </Sheet>
-  );
-}
-
-function Cell({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number | null;
-  tone?: "green";
-}) {
-  return (
-    <div>
-      <div className="text-[11px] text-ios-label-tertiary">{label}</div>
-      <div
-        className={
-          "font-medium " + (tone === "green" ? "text-ios-green" : "text-ios-label")
-        }
-      >
-        {value != null ? formatMoney(value) : "—"}
-      </div>
-    </div>
   );
 }
