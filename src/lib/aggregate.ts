@@ -1308,3 +1308,69 @@ export function buildThreeMonthSpendAnalysis(
   // Sort by total spend (highest first)
   return Array.from(spendByCategory.values()).sort((a, b) => b.total - a.total);
 }
+
+// ---------------------------------------------------------------------------
+// Cash deployment — nudge idle savings above a floor into offset / investments
+// ---------------------------------------------------------------------------
+
+export const CASH_DEPLOY_FLOOR = 100000; // keep this much liquid; deploy the rest
+export const CASH_DEPLOY_OFFSET_SPLIT = 0.7; // focus on offset (70/30)
+
+export interface CashDeployment {
+  cashBalance: number; // latest Savings closing balance
+  floor: number; // liquid buffer to keep
+  surplus: number; // amount above the floor, available to deploy
+  offsetAmount: number; // suggested to offset (capped at remaining mortgage debt)
+  investAmount: number; // suggested to investments (the remainder)
+  offsetAnnualInterestSaved: number; // benefit of the offset portion (0 if no mortgage)
+  offsetMonthsSooner: number | null; // months sooner from the offset portion
+}
+
+/**
+ * Suggests deploying idle cash once savings climb past a fixed floor. The
+ * trigger is simply the latest Savings closing balance crossing `floor`; the
+ * surplus is split with a bias toward offset (guaranteed, quantifiable return),
+ * with the offset portion capped at the remaining mortgage debt and any
+ * overflow rolling into investments. Returns null when there's no surplus.
+ *
+ * A suggestion, not advice — the offset benefit is exact; investing is a
+ * generic alternative since the app tracks no investment balance.
+ */
+export function computeCashDeployment({
+  savingsMonths,
+  offsetBase,
+  floor = CASH_DEPLOY_FLOOR,
+  offsetSplit = CASH_DEPLOY_OFFSET_SPLIT,
+}: {
+  savingsMonths: SavingsMonth[];
+  offsetBase: OffsetOptimizerBase | null;
+  floor?: number;
+  offsetSplit?: number;
+}): CashDeployment | null {
+  const latest = savingsMonths[savingsMonths.length - 1];
+  if (!latest) return null;
+
+  const cashBalance = latest.closingBalance;
+  const surplus = cashBalance - floor;
+  if (surplus <= 0) return null;
+
+  // Bias the surplus toward offset, but never suggest offsetting more than the
+  // mortgage still owes — the overflow rolls into the investment share.
+  const effectiveDebt = offsetBase?.effectiveDebt ?? 0;
+  const offsetAmount = Math.min(surplus * offsetSplit, effectiveDebt);
+  const investAmount = surplus - offsetAmount;
+
+  const opt = offsetBase
+    ? computeOffsetOptimization(offsetBase, offsetAmount)
+    : null;
+
+  return {
+    cashBalance,
+    floor,
+    surplus,
+    offsetAmount,
+    investAmount,
+    offsetAnnualInterestSaved: opt?.annualInterestSaved ?? 0,
+    offsetMonthsSooner: opt?.monthsSooner ?? null,
+  };
+}

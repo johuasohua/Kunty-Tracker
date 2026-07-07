@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Sparkles, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -14,7 +15,9 @@ import {
   breakdownByCategory,
   breakdownByCategoryForYear,
   buildCategorySpendCards,
+  buildSavingsData,
   computeMonthlyReview,
+  computeCashDeployment,
   computeBudgetProgress,
   computeBudgetProgressForYear,
   computeUpcomingBills,
@@ -79,6 +82,19 @@ export default function DashboardPage() {
     () => computeMonthlyReview(transactions, categories, budgets, people, month),
     [transactions, categories, budgets, people, month]
   );
+
+  // Lightweight cash-deployment nudge: does savings sit above the buffer? The
+  // full split (offset vs invest) lives on the Savings tab; here it's a teaser.
+  const cashNudge = useMemo(() => {
+    const savingsMonths = buildSavingsData({
+      transactions,
+      categories,
+      ccPayments,
+      seed,
+      endMonth: new Date(),
+    });
+    return computeCashDeployment({ savingsMonths, offsetBase: null });
+  }, [transactions, categories, ccPayments, seed]);
 
   const yearSeries = useMemo(() => {
     const end = new Date(year, 11, 1);
@@ -196,6 +212,29 @@ export default function DashboardPage() {
           <CategorySpendCards cards={categoryCards} monthKey={monthKey(month)} />
 
           <AccountBreakdownTable breakdown={currentBreakdown} people={people} />
+
+          {cashNudge && (
+            <Link href="/savings" className="mb-6 block">
+              <Card className="flex items-center gap-3 p-4 active:bg-ios-fill-secondary">
+                <div
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: "#30B0C726", color: "#30B0C7" }}
+                >
+                  <Sparkles size={17} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14px] font-semibold text-ios-label">
+                    {formatMoney(cashNudge.surplus)} ready to put to work
+                  </div>
+                  <div className="text-[13px] text-ios-label-secondary">
+                    Savings are above your {formatMoney(cashNudge.floor)} buffer —
+                    see how to deploy it.
+                  </div>
+                </div>
+                <ChevronRight size={18} className="shrink-0 text-ios-label-tertiary" />
+              </Card>
+            </Link>
+          )}
 
           <MonthlyReviewCard review={monthlyReview} monthKey={monthKey(month)} />
         </>

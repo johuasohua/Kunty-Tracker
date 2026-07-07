@@ -4,6 +4,9 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useSavingsData } from "@/lib/queries/savings";
+import { useMortgagePayments } from "@/lib/queries/mortgage";
+import { computeCashDeployment, computeOffsetOptimizerBase } from "@/lib/aggregate";
+import { CashDeploymentCard } from "@/components/savings/CashDeploymentCard";
 import { formatMoney } from "@/lib/format";
 
 export default function SavingsPage() {
@@ -16,8 +19,9 @@ export default function SavingsPage() {
 
 function SavingsPageContent() {
   const { savingsMonths, loading } = useSavingsData();
+  const { payments, loading: mortgageLoading } = useMortgagePayments();
 
-  if (loading) {
+  if (loading || mortgageLoading) {
     return (
       <div className="flex justify-center py-14">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-ios-blue border-t-transparent" />
@@ -43,9 +47,20 @@ function SavingsPageContent() {
   const monthlyTarget = 10000;
   const progress = (avgMonthlySavings / monthlyTarget) * 100;
 
+  const deployPlan = computeCashDeployment({
+    savingsMonths,
+    offsetBase: computeOffsetOptimizerBase(payments),
+  });
+
   return (
     <div className="px-4 md:px-0">
       <PageHeader title="Savings" />
+
+      {deployPlan && (
+        <div className="mb-6">
+          <CashDeploymentCard plan={deployPlan} />
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
