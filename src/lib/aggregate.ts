@@ -2,6 +2,7 @@ import type {
   Budget,
   CcPayment,
   Category,
+  MortgagePayment,
   OpeningCcBalance,
   Person,
   RecurringBill,
@@ -1003,6 +1004,129 @@ export function computeBudgetProgressForYear(
   }
 
   return entries.sort((a, b) => b.totalActual / b.totalBudget - a.totalActual / a.totalBudget);
+}
+
+// ---------------------------------------------------------------------------
+// Offset optimizer — "what if we parked more in the offset account?"
+// ---------------------------------------------------------------------------
+
+export interface OffsetOptimizerBase {
+  currentPrincipal: number; // latest closing principal
+  currentOffset: number; // latest offset closing balance
+  effectiveDebt: number; // principal − offset, floored at 0
+  monthlyRate: number; // derived per-month interest rate on effective debt
+  annualRatePct: number; // monthlyRate × 12 × 100, for display
+  monthlyPayment: number; // principal + interest portion of the latest payment
+  baselineMonthsRemaining: number | null; // months to payoff at current offset
+}
+
+export interface OffsetOptimization {
+  extra: number; // the extra amount modelled into offset
+  annualInterestSaved: number; // first-order: capped extra × annual rate
+  monthsSooner: number | null; // baseline payoff − payoff with extra
+  projectedMonthsRemaining: number | null; // payoff months with the extra applied
+}
+
+/**
+ * Number of monthly payments to clear an offset mortgage, given a fixed
+ * principal+interest payment. Interest each month accrues only on the
+ * *effective* debt (principal − offset). Returns null when the payment can't
+ * cover the first month's interest (the balance would never amortize).
+ */
+function monthsToPayoff(
+  principal: number,
+  offset: number,
+  monthlyRate: number,
+  monthlyPayment: number
+): number | null {
+  let balance = principal;
+  let months = 0;
+  // 1200 months = 100 years; a hard cap so a bad input can't spin forever.
+  while (balance > 0 && months < 1200) {
+    const effective = Math.max(0, balance - offset);
+    const interest = effective * monthlyRate;
+    const principalPortion = monthlyPayment - interest;
+    if (principalPortion <= 0) return null; // payment doesn't even cover interest
+    balance -= principalPortion;
+    months += 1;
+  }
+  return balance <= 0 ? months : null;
+}
+
+/**
+ * Derive the fixed inputs for the offset optimizer from mortgage history.
+ * The effective interest rate is *derived*, not stored: an offset mortgage
+ * charges interest on (principal − offset), so
+ *   monthlyRate ≈ interest_amount ÷ (opening_principal − offset_opening_balance)
+ * read off the latest payment row. Returns null when there isn't enough data
+ * to derive a sensible rate.
+ */
+export function computeOffsetOptimizerBase(
+  payments: MortgagePayment[]
+): OffsetOptimizerBase | null {
+  const latest = payments[payments.length - 1];
+  if (!latest) return null;
+
+  const currentPrincipal = latest.closing_principal;
+  const currentOffset = latest.offset_closing_balance ?? 0;
+  if (currentPrincipal <= 0) return null;
+
+  const rateBase = latest.opening_principal - (latest.offset_opening_balance ?? 0);
+  if (rateBase <= 0 || latest.interest_amount <= 0) return null;
+
+  const monthlyRate = latest.interest_amount / rateBase;
+  const monthlyPayment = latest.principal_amount + latest.interest_amount;
+
+  return {
+    currentPrincipal,
+    currentOffset,
+    effectiveDebt: Math.max(0, currentPrincipal - currentOffset),
+    monthlyRate,
+    annualRatePct: monthlyRate * 12 * 100,
+    monthlyPayment,
+    baselineMonthsRemaining: monthsToPayoff(
+      currentPrincipal,
+      currentOffset,
+      monthlyRate,
+      monthlyPayment
+    ),
+  };
+}
+
+/**
+ * Model the benefit of parking an extra amount in the offset account:
+ * annual interest saved (first-order, capped at the still-owing effective
+ * debt so it never overstates) and how many months sooner the mortgage
+ * clears (via two amortization runs). Positive-framing only — `extra` is
+ * assumed ≥ 0.
+ */
+export function computeOffsetOptimization(
+  base: OffsetOptimizerBase,
+  extra: number
+): OffsetOptimization {
+  // You only save interest on the portion of `extra` that reduces still-owing
+  // effective debt; beyond payoff there's nothing left to save.
+  const savingBase = Math.min(Math.max(0, extra), base.effectiveDebt);
+  const annualInterestSaved = savingBase * base.monthlyRate * 12;
+
+  const projectedMonthsRemaining = monthsToPayoff(
+    base.currentPrincipal,
+    base.currentOffset + extra,
+    base.monthlyRate,
+    base.monthlyPayment
+  );
+
+  const monthsSooner =
+    base.baselineMonthsRemaining != null && projectedMonthsRemaining != null
+      ? base.baselineMonthsRemaining - projectedMonthsRemaining
+      : null;
+
+  return {
+    extra,
+    annualInterestSaved,
+    monthsSooner,
+    projectedMonthsRemaining,
+  };
 }
 
 export interface SavingsDataInput {

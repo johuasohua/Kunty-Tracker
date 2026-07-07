@@ -9,6 +9,7 @@ import { MortgageBalanceChart } from "@/components/mortgage/MortgageBalanceChart
 import { InterestSavedCard } from "@/components/mortgage/InterestSavedCard";
 import { PaymentBreakdownCard } from "@/components/mortgage/PaymentBreakdownCard";
 import { OffsetPanel } from "@/components/mortgage/OffsetPanel";
+import { OffsetOptimizerCard } from "@/components/mortgage/OffsetOptimizerCard";
 import { PaymentHistoryTable } from "@/components/mortgage/PaymentHistoryTable";
 import { AddPaymentSheet } from "@/components/mortgage/AddPaymentSheet";
 
@@ -54,6 +55,10 @@ export default function MortgagePage() {
 
           <div className="mb-6">
             <OffsetPanel payments={payments} />
+          </div>
+
+          <div className="mb-6">
+            <OffsetOptimizerCard payments={payments} />
           </div>
 
           <div className="mb-6">
