@@ -58,11 +58,11 @@ export default function MortgagePage() {
           </div>
 
           <div className="mb-6">
-            <OffsetOptimizerCard payments={payments} />
+            <MortgageBalanceChart payments={payments} />
           </div>
 
           <div className="mb-6">
-            <MortgageBalanceChart payments={payments} />
+            <OffsetOptimizerCard payments={payments} />
           </div>
 
           <PaymentHistoryTable payments={payments} onChanged={refresh} />

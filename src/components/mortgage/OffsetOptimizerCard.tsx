@@ -54,37 +54,34 @@ export function OffsetOptimizerCard({
   const showMonths = monthsSooner > 0;
 
   return (
-    <Card className="p-4">
-      <div className="mb-1 flex items-center gap-2">
+    <Card className="p-3.5">
+      <div className="mb-2.5 flex items-center gap-2">
         <div
-          className="flex h-7 w-7 items-center justify-center rounded-full"
+          className="flex h-6 w-6 items-center justify-center rounded-full"
           style={{ backgroundColor: `${OFFSET_TEAL}26`, color: OFFSET_TEAL }}
         >
-          <Sparkles size={15} />
+          <Sparkles size={13} />
         </div>
-        <h2 className="text-[15px] font-semibold text-ios-label">
+        <h2 className="text-[14px] font-semibold text-ios-label">
           Offset Optimizer
         </h2>
       </div>
-      <p className="mb-4 text-[13px] text-ios-label-secondary">
-        See what parking more in your offset account would do.
-      </p>
 
-      {/* Amount being modelled, anchored to the current offset balance */}
-      <div className="mb-3 text-center">
-        <div className="text-[11px] uppercase tracking-wide text-ios-label-tertiary">
+      {/* Amount + anchor to current offset balance */}
+      <div className="flex items-baseline justify-between">
+        <span className="text-[12px] text-ios-label-secondary">
           Move into offset
-        </div>
-        <div className="text-[28px] font-bold text-ios-label">
+        </span>
+        <span className="text-[20px] font-bold text-ios-label">
           {formatMoney(extra)}
-        </div>
-        <div className="mt-1 text-[12px] text-ios-label-secondary">
-          Offset {formatMoney(base.currentOffset)}{" "}
-          <span className="text-ios-label-tertiary">→</span>{" "}
-          <span className="font-semibold" style={{ color: OFFSET_TEAL }}>
-            {formatMoney(base.currentOffset + extra)}
-          </span>
-        </div>
+        </span>
+      </div>
+      <div className="mb-2 text-right text-[11px] text-ios-label-secondary">
+        Offset {formatMoney(base.currentOffset)}{" "}
+        <span className="text-ios-label-tertiary">→</span>{" "}
+        <span className="font-semibold" style={{ color: OFFSET_TEAL }}>
+          {formatMoney(base.currentOffset + extra)}
+        </span>
       </div>
 
       {/* Slider */}
@@ -96,12 +93,12 @@ export function OffsetOptimizerCard({
         value={extra}
         onChange={(e) => setExtra(Number(e.target.value))}
         aria-label="Extra amount to move into offset"
-        className="mb-3 w-full cursor-pointer"
+        className="mb-2.5 w-full cursor-pointer"
         style={{ accentColor: OFFSET_TEAL }}
       />
 
       {/* Quick picks */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         {QUICK_PICKS.filter((v) => v <= sliderMax).map((v) => {
           const active = extra === v;
           return (
@@ -109,7 +106,7 @@ export function OffsetOptimizerCard({
               key={v}
               onClick={() => setExtra(v)}
               className={
-                "rounded-full px-3 py-1 text-[13px] font-medium transition-colors " +
+                "rounded-full px-2.5 py-0.5 text-[12px] font-medium transition-colors " +
                 (active
                   ? "text-white"
                   : "bg-ios-fill text-ios-label active:bg-ios-fill-secondary")
@@ -123,53 +120,32 @@ export function OffsetOptimizerCard({
       </div>
 
       {/* Outcomes */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-ios-fill p-3">
-          <div className="text-[11px] text-ios-label-secondary">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-lg bg-ios-fill p-2.5">
+          <div className="text-[10px] text-ios-label-secondary">
             Interest saved / year
           </div>
-          <div className="text-[19px] font-bold text-ios-green">
+          <div className="text-[16px] font-bold text-ios-green">
             {formatMoney(result.annualInterestSaved)}
           </div>
         </div>
-        <div className="rounded-xl bg-ios-fill p-3">
+        <div className="rounded-lg bg-ios-fill p-2.5">
           <div className="flex items-center gap-1">
-            <span className="text-[11px] text-ios-label-secondary">
+            <span className="text-[10px] text-ios-label-secondary">
               Mortgage cleared
             </span>
             <span className="rounded bg-ios-label-tertiary/15 px-1 text-[9px] font-medium uppercase tracking-wide text-ios-label-tertiary">
               est
             </span>
           </div>
-          <div className="text-[19px] font-bold" style={{ color: OFFSET_TEAL }}>
+          <div className="text-[16px] font-bold" style={{ color: OFFSET_TEAL }}>
             {showMonths ? `${formatMonths(monthsSooner)} sooner` : "—"}
           </div>
         </div>
       </div>
 
-      {/* Plain-language summary */}
-      <p className="mt-4 text-[13px] text-ios-label">
-        Moving{" "}
-        <span className="font-semibold">{formatMoney(extra)}</span> into offset
-        saves{" "}
-        <span className="font-semibold text-ios-green">
-          ~{formatMoney(result.annualInterestSaved)}
-        </span>{" "}
-        a year in interest
-        {showMonths ? (
-          <>
-            {" "}
-            and clears your mortgage{" "}
-            <span className="font-semibold" style={{ color: OFFSET_TEAL }}>
-              ~{formatMonths(monthsSooner)} sooner
-            </span>
-          </>
-        ) : null}
-        .
-      </p>
-
       {/* Assumptions footnote */}
-      <p className="mt-2 text-[11px] text-ios-label-tertiary">
+      <p className="mt-3 text-[11px] text-ios-label-tertiary">
         Assumes the balance stays in offset and your payment is unchanged. Rate
         ~{base.annualRatePct.toFixed(1)}%, derived from your latest payment.
       </p>
