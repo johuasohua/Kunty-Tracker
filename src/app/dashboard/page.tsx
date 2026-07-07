@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useCategories } from "@/lib/queries/categories";
 import { useProfile } from "@/lib/profile-context";
 import { useDashboardData } from "@/lib/queries/dashboard-data";
+import { useSavingsPeriods } from "@/lib/queries/savings-periods";
 import {
   buildMonthlySeries,
   buildCcSeries,
@@ -45,6 +46,7 @@ export default function DashboardPage() {
   const { categories, loading: categoriesLoading } = useCategories();
   const { people } = useProfile();
   const { transactions, seed, loading: dataLoading } = useDashboardData();
+  const { periods: lockedSavings } = useSavingsPeriods();
   const { openingBalances, payments: ccPayments, loading: ccLoading, refresh: refreshCc } =
     useCcData();
   const { budgets, loading: budgetsLoading } = useBudgets();
@@ -90,11 +92,11 @@ export default function DashboardPage() {
       transactions,
       categories,
       ccPayments,
-      seed,
+      lockedPeriods: lockedSavings,
       endMonth: new Date(),
     });
     return computeCashDeployment({ savingsMonths, offsetBase: null });
-  }, [transactions, categories, ccPayments, seed]);
+  }, [transactions, categories, ccPayments, lockedSavings]);
 
   const yearSeries = useMemo(() => {
     const end = new Date(year, 11, 1);

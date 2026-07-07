@@ -1126,24 +1126,65 @@ export function computeOffsetOptimization(
   };
 }
 
+/** A locked historical savings month, imported from the source spreadsheet. */
+export interface LockedSavingsPeriod {
+  period_month: string; // YYYY-MM
+  opening_balance: number;
+  total_income: number;
+  debit_expense: number;
+  cc_paid_off: number;
+  total_expense: number;
+  closing_balance: number;
+  amount_saved: number;
+}
+
 export interface SavingsDataInput {
   transactions: LightTransaction[];
   categories: Category[];
   ccPayments: CcPayment[];
-  seed: OpeningBalanceSeed | null;
+  lockedPeriods: LockedSavingsPeriod[];
   endMonth: Date;
 }
 
+/**
+ * Builds the Savings series. Locked historical months (imported from the
+ * spreadsheet) are shown verbatim; months *after* the latest locked month are
+ * derived live from transactions, chaining from the last locked closing
+ * balance.
+ *
+ * Cash model (matches the source spreadsheet): only debit spending and the
+ * month's credit-card bill payment leave the account —
+ *   closing = opening + income − debitExpense − ccPaidOff
+ * Credit-card *purchases* are NOT subtracted directly (they hit cash when the
+ * bill is paid, captured by ccPaidOff), so they're excluded from the cash math.
+ * Offset/Refund sign handling still applies to debit expenses.
+ */
 export function buildSavingsData({
   transactions,
   categories,
   ccPayments,
-  seed,
+  lockedPeriods,
   endMonth,
 }: SavingsDataInput): SavingsMonth[] {
   const treatAs = categoryTreatAsMap(categories);
 
-  // Group transactions by month
+  // 1. Locked historical months, verbatim.
+  const locked = [...lockedPeriods].sort((a, b) =>
+    a.period_month.localeCompare(b.period_month)
+  );
+  const series: SavingsMonth[] = locked.map((p) => ({
+    key: p.period_month,
+    month: new Date(`${p.period_month}-01T00:00:00`),
+    openingBalance: p.opening_balance,
+    totalIncome: p.total_income,
+    debitExpense: p.debit_expense,
+    ccPaidOff: p.cc_paid_off,
+    totalExpense: p.total_expense,
+    closingBalance: p.closing_balance,
+    amountSaved: p.amount_saved,
+  }));
+
+  // 2. Derive months after the latest locked month from transactions.
   const txByMonth = new Map<string, LightTransaction[]>();
   for (const t of transactions) {
     const key = monthKey(new Date(t.occurred_on));
@@ -1152,30 +1193,28 @@ export function buildSavingsData({
     txByMonth.set(key, list);
   }
 
-  // Group CC payments by month
   const ccByMonth = new Map<string, CcPayment[]>();
   for (const c of ccPayments) {
-    const key = c.month; // month is already in YYYY-MM format
+    const key = c.month.slice(0, 7); // stored as YYYY-MM-DD; normalize to YYYY-MM
     const list = ccByMonth.get(key) ?? [];
     list.push(c);
     ccByMonth.set(key, list);
   }
 
-  // Determine the month range
-  let startDate: Date;
-  if (seed) {
-    startDate = new Date(seed.as_of_month);
-  } else if (transactions.length > 0) {
-    startDate = new Date(transactions[0].occurred_on);
-  } else {
-    startDate = endMonth;
-  }
-  startDate = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-  const end = new Date(endMonth.getFullYear(), endMonth.getMonth(), 1);
+  const lastLocked = locked[locked.length - 1] ?? null;
+  let running = lastLocked?.closing_balance ?? 0;
 
-  const series: SavingsMonth[] = [];
-  let running = seed?.balance ?? 0;
-  const cursor = new Date(startDate);
+  // Start the month after the last locked row (or the earliest transaction if
+  // no locked history exists yet).
+  const cursor = lastLocked
+    ? new Date(`${lastLocked.period_month}-01T00:00:00`)
+    : transactions.length > 0
+      ? new Date(transactions[0].occurred_on)
+      : new Date(endMonth);
+  cursor.setDate(1);
+  if (lastLocked) cursor.setMonth(cursor.getMonth() + 1);
+
+  const end = new Date(endMonth.getFullYear(), endMonth.getMonth(), 1);
 
   while (cursor <= end) {
     const key = monthKey(cursor);
@@ -1184,39 +1223,41 @@ export function buildSavingsData({
 
     let totalIncome = 0;
     let debitExpense = 0;
-    let totalExpense = 0;
 
     for (const t of monthTxs) {
       if (t.type === "income") {
         totalIncome += t.amount;
-      } else if (t.type === "expense") {
-        const treatAsType = treatAs.get(t.category_id);
-        const amount = treatAsType === "offset" ? -t.amount : t.amount;
-        totalExpense += amount;
-        if (t.payment_method === "debit") {
-          debitExpense += amount;
-        }
+      } else if (t.type === "expense" && t.payment_method === "debit") {
+        // Credit-card purchases are realized as ccPaidOff, not here.
+        const sign = treatAs.get(t.category_id) === "offset" ? -1 : 1;
+        debitExpense += sign * t.amount;
       }
     }
 
     const ccPaidOff = monthCcPayments.reduce((sum, c) => sum + c.amount_paid, 0);
+    const totalExpense = debitExpense + ccPaidOff;
     const opening = running;
-    const closing = opening + totalIncome - totalExpense - ccPaidOff;
+    const closing = opening + totalIncome - totalExpense;
     const amountSaved = closing - opening;
 
-    series.push({
-      key,
-      month: new Date(cursor),
-      openingBalance: opening,
-      totalIncome,
-      debitExpense,
-      ccPaidOff,
-      totalExpense,
-      closingBalance: closing,
-      amountSaved,
-    });
+    // Skip trailing empty months so the table ends at the last active month.
+    const hasActivity =
+      monthTxs.length > 0 || monthCcPayments.length > 0;
+    if (hasActivity) {
+      series.push({
+        key,
+        month: new Date(cursor),
+        openingBalance: opening,
+        totalIncome,
+        debitExpense,
+        ccPaidOff,
+        totalExpense,
+        closingBalance: closing,
+        amountSaved,
+      });
+      running = closing;
+    }
 
-    running = closing;
     cursor.setMonth(cursor.getMonth() + 1);
   }
 
