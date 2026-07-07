@@ -9,13 +9,17 @@ export function CategoryPicker({
   value,
   onChange,
   filter = "expense",
+  exclude = [],
 }: {
   categories: Category[];
   value: string | null;
   onChange: (categoryId: string) => void;
   filter?: "expense" | "income" | "all";
+  exclude?: string[]; // category names to exclude (case-insensitive)
 }) {
+  const excludeSet = new Set(exclude.map((s) => s.toLowerCase()));
   const options = categories.filter((c) => {
+    if (excludeSet.has(c.name.toLowerCase())) return false;
     if (filter === "all") return true;
     if (filter === "income") return c.treat_as === "income";
     return c.treat_as !== "income";

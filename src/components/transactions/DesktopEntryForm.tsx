@@ -116,11 +116,13 @@ export function DesktopEntryForm({ onSaved }: { onSaved: () => void }) {
             className="w-full rounded-lg border border-ios-separator bg-ios-bg px-2.5 py-2 text-[14px] text-ios-label outline-none focus:border-ios-blue"
           >
             <option value="">Select…</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            {categories
+              .filter((c) => c.name.toLowerCase() !== "mortgage")
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
           </select>
         </div>
 
