@@ -38,7 +38,7 @@ export function OffsetHistorySheet({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
+          <table className="w-full min-w-[640px] text-[13px]">
             <thead>
               <tr className="border-b border-ios-separator">
                 <th className="px-3 py-2.5 text-left font-semibold text-ios-label-secondary">
