@@ -1,20 +1,34 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { formatMoney } from "@/lib/format";
-import type { OffsetAccountPeriod } from "@/lib/queries/offset";
+import { deleteOffsetPeriod, type OffsetAccountPeriod } from "@/lib/queries/offset";
 
 export function OffsetHistorySheet({
   open,
   onClose,
   periods,
+  onDeleted,
 }: {
   open: boolean;
   onClose: () => void;
   periods: OffsetAccountPeriod[];
+  onDeleted?: () => void;
 }) {
   // Newest first
   const rows = [...periods].reverse();
+
+  async function handleDelete(id: string, month: string) {
+    if (
+      !window.confirm(
+        `Delete the ${month} offset entry? This cannot be undone.`
+      )
+    )
+      return;
+    await deleteOffsetPeriod(id);
+    onDeleted?.();
+  }
 
   return (
     <Sheet open={open} onClose={onClose} title="Offset History">
@@ -45,6 +59,7 @@ export function OffsetHistorySheet({
                 <th className="px-3 py-2.5 text-left font-semibold text-ios-label-secondary">
                   Note
                 </th>
+                <th className="px-3 py-2.5" />
               </tr>
             </thead>
             <tbody>
@@ -52,9 +67,10 @@ export function OffsetHistorySheet({
                 <tr
                   key={p.id}
                   className={
-                    idx !== rows.length - 1
-                      ? "border-b border-ios-separator"
-                      : ""
+                    "group" +
+                    (idx !== rows.length - 1
+                      ? " border-b border-ios-separator"
+                      : "")
                   }
                 >
                   <td className="px-3 py-3 text-ios-label">
@@ -74,6 +90,15 @@ export function OffsetHistorySheet({
                   </td>
                   <td className="px-3 py-3 text-[12px] text-ios-label-secondary">
                     {p.transaction_note || "—"}
+                  </td>
+                  <td className="px-3 py-3">
+                    <button
+                      onClick={() => handleDelete(p.id, p.period_month)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-ios-fill text-ios-red opacity-0 group-hover:opacity-100"
+                      aria-label={`Delete ${p.period_month} entry`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </td>
                 </tr>
               ))}

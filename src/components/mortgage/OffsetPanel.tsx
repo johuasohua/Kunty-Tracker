@@ -63,6 +63,7 @@ export function OffsetPanel({ refreshTrigger }: { refreshTrigger?: number } = {}
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
         periods={periods}
+        onDeleted={refresh}
       />
     </>
   );
