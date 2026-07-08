@@ -198,7 +198,7 @@ export function buildCategorySpendCards(
 
   const cards: CategorySpendCard[] = [];
   for (const cat of categories) {
-    if (cat.treat_as === "income") continue;
+    if (cat.treat_as === "income" || isOffsetLike(cat.treat_as)) continue;
     const spark = months.map((m) => totalsByMonth.get(monthKey(m))?.get(cat.id) ?? 0);
     const current = totalsByMonth.get(currentKey)?.get(cat.id) ?? 0;
     const previous = totalsByMonth.get(previousKey)?.get(cat.id) ?? 0;
