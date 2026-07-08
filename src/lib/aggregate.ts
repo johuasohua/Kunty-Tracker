@@ -1223,22 +1223,25 @@ export function buildSavingsData({
 
     let totalIncome = 0;
     let debitExpense = 0;
+    let offsetTransfers = 0;
 
     for (const t of monthTxs) {
       if (t.type === "income") {
         totalIncome += t.amount;
-      } else if (t.type === "expense" && t.payment_method === "debit") {
-        // Credit-card purchases are realized as ccPaidOff, not here.
-        // Exclude offset/refund transfers—they're not spending, already tracked separately.
+      } else if (t.type === "expense") {
         const treatAsValue = treatAs.get(t.category_id);
-        if (treatAsValue !== "offset") {
+        if (treatAsValue === "offset") {
+          // Offset transfers (cash to offset account) reduce settlement cash
+          offsetTransfers += t.amount;
+        } else if (t.payment_method === "debit") {
+          // Credit-card purchases are realized as ccPaidOff, not here.
           debitExpense += t.amount;
         }
       }
     }
 
     const ccPaidOff = monthCcPayments.reduce((sum, c) => sum + c.amount_paid, 0);
-    const totalExpense = debitExpense + ccPaidOff;
+    const totalExpense = debitExpense + ccPaidOff + offsetTransfers;
     const opening = running;
     const closing = opening + totalIncome - totalExpense;
     const amountSaved = closing - opening;
