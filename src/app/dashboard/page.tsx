@@ -132,10 +132,10 @@ export default function DashboardPage() {
   const ccSeriesByPerson = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildCcSeries>>();
     for (const p of people) {
-      map.set(p.id, buildCcSeries(transactions, ccPayments, openingBalances, p.id, month));
+      map.set(p.id, buildCcSeries(transactions, ccPayments, openingBalances, p.id, month, categories));
     }
     return map;
-  }, [people, transactions, ccPayments, openingBalances, month]);
+  }, [people, transactions, ccPayments, openingBalances, month, categories]);
 
   // Reconciliation: dashboard cash (accrual) + outstanding cards owed should
   // equal the settled-cash Savings closing for the same month.

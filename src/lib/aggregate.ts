@@ -623,14 +623,25 @@ export function buildCcSeries(
   ccPayments: CcPayment[],
   openingBalances: OpeningCcBalance[],
   personId: string,
-  endMonth: Date
+  endMonth: Date,
+  categories?: Category[]
 ): CcMonthPoint[] {
   const seed = openingBalances.find((b) => b.person_id === personId) ?? null;
   const personTransactions = transactions.filter((t) => t.person_id === personId);
 
+  // Build category treat_as map to filter offset transactions
+  const treatAsMap = new Map<string, Category["treat_as"]>();
+  if (categories) {
+    for (const c of categories) {
+      treatAsMap.set(c.id, c.treat_as);
+    }
+  }
+
   const spendByMonth = new Map<string, { credit: number; debit: number }>();
   for (const t of personTransactions) {
     if (t.type !== "expense") continue;
+    // Exclude offset transactions from CC calculations — they're cash out to a loan account, not CC spending
+    if (treatAsMap.get(t.category_id) === "offset") continue;
     const key = monthKey(new Date(t.occurred_on));
     const bucket = spendByMonth.get(key) ?? { credit: 0, debit: 0 };
     if (t.payment_method === "credit") bucket.credit += t.amount;

@@ -7,6 +7,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useProfile } from "@/lib/profile-context";
 import { useDashboardData } from "@/lib/queries/dashboard-data";
 import { useCcData } from "@/lib/queries/cc";
+import { useCategories } from "@/lib/queries/categories";
 import { buildCcSeries } from "@/lib/aggregate";
 import { CcTrendChart } from "@/components/credit-cards/CcTrendChart";
 import { CcHistoryTable } from "@/components/credit-cards/CcHistoryTable";
@@ -26,6 +27,7 @@ function CreditCardsPageContent() {
   const searchParams = useSearchParams();
   const { people } = useProfile();
   const { transactions, loading: txLoading } = useDashboardData();
+  const { categories, loading: categoriesLoading } = useCategories();
   const { openingBalances, payments, loading: ccLoading, refresh } = useCcData();
 
   const [personId, setPersonId] = useState<string | null>(
@@ -38,10 +40,10 @@ function CreditCardsPageContent() {
 
   const series = useMemo(() => {
     if (!activePersonId) return [];
-    return buildCcSeries(transactions, payments, openingBalances, activePersonId, new Date());
-  }, [transactions, payments, openingBalances, activePersonId]);
+    return buildCcSeries(transactions, payments, openingBalances, activePersonId, new Date(), categories);
+  }, [transactions, payments, openingBalances, activePersonId, categories]);
 
-  const loading = txLoading || ccLoading;
+  const loading = txLoading || ccLoading || categoriesLoading;
 
   return (
     <div className="px-4 md:px-0">
