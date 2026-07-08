@@ -7,7 +7,6 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { useProfile } from "@/lib/profile-context";
 import { createMortgagePayment } from "@/lib/queries/mortgage";
 import { createTransaction } from "@/lib/queries/transactions";
-import { syncOffsetMortgageDeduction } from "@/lib/queries/offset";
 import type { MortgagePayment } from "@/lib/types";
 
 function todayISO() {
@@ -96,10 +95,8 @@ export function LogTransactionSheet({
         offset_closing_balance: offsetClosing,
         interest_saved: interestSavedNum || null,
       });
-      await syncOffsetMortgageDeduction({
-        totalPayment,
-        occurredOn: mortgageDate,
-      });
+      // The offset panel derives this month's deduction straight from the
+      // mortgage_payments row just created — no ledger mirroring needed.
       onSaved();
       onClose();
     } catch (err) {

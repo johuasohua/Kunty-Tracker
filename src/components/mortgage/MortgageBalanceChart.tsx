@@ -13,17 +13,17 @@ import {
 import { Card } from "@/components/ui/Card";
 import { formatMoney, formatAxisTick } from "@/lib/format";
 import type { MortgagePayment } from "@/lib/types";
-import type { OffsetAccountPeriod } from "@/lib/queries/offset";
+import type { OffsetSeriesPoint } from "@/lib/aggregate";
 
 export function MortgageBalanceChart({
   payments,
-  offsetPeriods,
+  offsetSeries,
 }: {
   payments: MortgagePayment[];
-  offsetPeriods?: OffsetAccountPeriod[];
+  offsetSeries?: OffsetSeriesPoint[];
 }) {
   const offsetByMonth = new Map(
-    (offsetPeriods ?? []).map((p) => [p.period_month, p.closing_balance])
+    (offsetSeries ?? []).map((p) => [p.periodMonth, p.closingBalance])
   );
 
   const data = payments.map((p) => {

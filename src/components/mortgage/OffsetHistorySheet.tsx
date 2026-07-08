@@ -3,21 +3,22 @@
 import { Trash2 } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { formatMoney } from "@/lib/format";
-import { deleteOffsetPeriod, type OffsetAccountPeriod } from "@/lib/queries/offset";
+import { deleteOffsetPeriod } from "@/lib/queries/offset";
+import type { OffsetSeriesPoint } from "@/lib/aggregate";
 
 export function OffsetHistorySheet({
   open,
   onClose,
-  periods,
+  series,
   onDeleted,
 }: {
   open: boolean;
   onClose: () => void;
-  periods: OffsetAccountPeriod[];
+  series: OffsetSeriesPoint[];
   onDeleted?: () => void;
 }) {
   // Newest first
-  const rows = [...periods].reverse();
+  const rows = [...series].reverse();
 
   async function handleDelete(id: string, month: string) {
     if (
@@ -65,7 +66,7 @@ export function OffsetHistorySheet({
             <tbody>
               {rows.map((p, idx) => (
                 <tr
-                  key={p.id}
+                  key={p.id ?? p.periodMonth}
                   className={
                     idx !== rows.length - 1
                       ? "border-b border-ios-separator"
@@ -73,31 +74,39 @@ export function OffsetHistorySheet({
                   }
                 >
                   <td className="px-3 py-3 text-ios-label">
-                    <span className="font-semibold">{p.period_month}</span>
+                    <span className="font-semibold">{p.periodMonth}</span>
                   </td>
                   <td className="px-3 py-3 text-right text-ios-label">
-                    {formatMoney(p.opening_balance)}
+                    {formatMoney(p.openingBalance)}
                   </td>
                   <td className="px-3 py-3 text-right font-semibold text-ios-label">
-                    {formatMoney(p.closing_balance)}
+                    {formatMoney(p.closingBalance)}
                   </td>
                   <td className="px-3 py-3 text-right font-semibold text-ios-green">
-                    {p.deposit_amount ? formatMoney(p.deposit_amount) : "—"}
+                    {p.depositAmount ? formatMoney(p.depositAmount) : "—"}
                   </td>
                   <td className="px-3 py-3 text-right font-semibold text-ios-red">
-                    {p.mortgage_deduction ? formatMoney(-p.mortgage_deduction) : "—"}
+                    {p.mortgageDeduction ? formatMoney(-p.mortgageDeduction) : "—"}
                   </td>
                   <td className="px-3 py-3 text-[12px] text-ios-label-secondary">
-                    {p.transaction_note || "—"}
+                    {p.transactionNote || "—"}
                   </td>
                   <td className="px-3 py-3">
-                    <button
-                      onClick={() => handleDelete(p.id, p.period_month)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full bg-ios-fill text-ios-red"
-                      aria-label={`Delete ${p.period_month} entry`}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    {p.locked && p.id ? (
+                      <button
+                        onClick={() => handleDelete(p.id!, p.periodMonth)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-ios-fill text-ios-red"
+                        aria-label={`Delete ${p.periodMonth} entry`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    ) : (
+                      // Derived from live transactions + mortgage payments —
+                      // edit those to change this row; nothing stored to delete.
+                      <span className="rounded-full bg-ios-fill px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ios-label-secondary">
+                        Live
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

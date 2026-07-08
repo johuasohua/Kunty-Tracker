@@ -1,30 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChevronRight, PiggyBank } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { formatMoney } from "@/lib/format";
-import { useOffsetAccount } from "@/lib/queries/offset";
+import type { OffsetSeriesPoint } from "@/lib/aggregate";
 import { OffsetHistorySheet } from "@/components/mortgage/OffsetHistorySheet";
 
-export function OffsetPanel({ refreshTrigger }: { refreshTrigger?: number } = {}) {
-  const { periods, refresh } = useOffsetAccount();
+export function OffsetPanel({
+  series,
+  onLedgerChanged,
+}: {
+  series: OffsetSeriesPoint[];
+  onLedgerChanged?: () => void;
+}) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Re-fetch offset data on mount and whenever refreshTrigger changes
-  useEffect(() => {
-    refresh();
-  }, [refreshTrigger, refresh]);
-
   // Earliest period = where offset started
-  const firstPeriod = periods[0] ?? null;
-  // Latest period = current state
-  const lastPeriod = periods[periods.length - 1] ?? null;
+  const firstPeriod = series[0] ?? null;
+  // Latest period = current state (derived live for open months)
+  const lastPeriod = series[series.length - 1] ?? null;
 
-  const openingBalance = firstPeriod?.opening_balance ?? 0;
-  const closingBalance = lastPeriod?.closing_balance ?? 0;
+  const openingBalance = firstPeriod?.openingBalance ?? 0;
+  const closingBalance = lastPeriod?.closingBalance ?? 0;
   // Most recent period that actually had a deposit (not just a mortgage deduction)
-  const lastDeposit = [...periods].reverse().find((p) => p.deposit_amount > 0) ?? null;
+  const lastDeposit = [...series].reverse().find((p) => p.depositAmount > 0) ?? null;
 
   return (
     <>
@@ -52,9 +52,9 @@ export function OffsetPanel({ refreshTrigger }: { refreshTrigger?: number } = {}
           <Stat label="Closing Balance" value={closingBalance} emphasize />
           <Stat
             label="Last Deposit"
-            value={lastDeposit?.deposit_amount ?? 0}
+            value={lastDeposit?.depositAmount ?? 0}
             tone="green"
-            note={lastDeposit?.transaction_note ?? undefined}
+            note={lastDeposit?.transactionNote ?? undefined}
           />
         </div>
       </Card>
@@ -62,8 +62,8 @@ export function OffsetPanel({ refreshTrigger }: { refreshTrigger?: number } = {}
       <OffsetHistorySheet
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
-        periods={periods}
-        onDeleted={refresh}
+        series={series}
+        onDeleted={onLedgerChanged}
       />
     </>
   );

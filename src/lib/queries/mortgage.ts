@@ -77,8 +77,6 @@ export async function deleteMortgagePayment(id: string) {
 
 export type LedgerSyncResult =
   | "mortgage-period" // new payment period created
-  | "offset-created" // new offset account period created
-  | "offset-updated" // offset account period updated
   | "skipped-no-history"; // no ledger rows yet to attach to
 
 async function fetchLatestPayment(): Promise<MortgagePayment | null> {
@@ -93,21 +91,20 @@ async function fetchLatestPayment(): Promise<MortgagePayment | null> {
 }
 
 /**
- * Mirrors a "Mortgage" or "Offset" *transaction* into the mortgage ledger so
- * both views stay in sync (the transaction feeds the monthly cash-flow; the
- * ledger rows feed their respective tabs).
+ * Mirrors a "Mortgage" *transaction* into the mortgage ledger so both views
+ * stay in sync (the transaction feeds the monthly cash-flow; the ledger row
+ * feeds the Mortgage tab).
  *
- * - Offset → synced to offset_account_periods table (independent of mortgage).
- *   If no offset period exists, creates the first one. Otherwise updates the
- *   latest period with the new transaction amount and closing balance.
- * - Mortgage → opens the next mortgage payment period with the full amount as
- *   principal (closing = opening − principal, per the calc engine) and
- *   insurance/HOI carried forward. The bank's real P/I split isn't known at
- *   logging time — edit the row on the Mortgage tab to apportion interest;
- *   the row is flagged via offset_note so it's easy to spot.
+ * Opens the next mortgage payment period with the full amount as principal
+ * (closing = opening − principal, per the calc engine) and insurance/HOI
+ * carried forward. The bank's real P/I split isn't known at logging time —
+ * edit the row on the Mortgage tab to apportion interest; the row is flagged
+ * via offset_note so it's easy to spot.
  *
- * Edits/deletes of the transaction afterwards are NOT mirrored — the ledger
- * rows are managed on their respective tabs like any other.
+ * "Offset" transactions need no mirroring at all: the offset panel derives
+ * open months directly from Offset-category transactions and mortgage
+ * payments (see buildOffsetSeries), so the transaction row itself IS the
+ * record — edits, deletes and backdating are reflected automatically.
  */
 export async function syncLedgerForCategoryTransaction(input: {
   categoryName: string;
@@ -116,23 +113,12 @@ export async function syncLedgerForCategoryTransaction(input: {
   note: string | null;
 }): Promise<LedgerSyncResult | null> {
   const name = (input.categoryName ?? "").trim().toLowerCase();
-  if (name !== "mortgage" && name !== "offset") return null;
+  if (name !== "mortgage") return null;
   if (!input.amount || input.amount <= 0) return null;
-
-  if (name === "offset") {
-    const { syncOffsetTransaction } = await import("@/lib/queries/offset");
-    const result = await syncOffsetTransaction({
-      amount: input.amount,
-      occurredOn: input.occurredOn,
-      note: input.note,
-    });
-    return result;
-  }
 
   const last = await fetchLatestPayment();
 
   // Mortgage payment → next period, amount as principal until split is edited.
-  // Automatically deduct the full payment amount from offset account.
   const opening = last?.closing_principal ?? 0;
   const offsetOpening = last?.offset_closing_balance ?? null;
   const insuranceAmount = last?.insurance_amount ?? 0;
@@ -152,12 +138,6 @@ export async function syncLedgerForCategoryTransaction(input: {
     offset_opening_balance: offsetOpening,
     offset_closing_balance: offsetClosing,
     offset_note: "Auto-logged from transaction — edit P/I split",
-  });
-
-  const { syncOffsetMortgageDeduction } = await import("@/lib/queries/offset");
-  await syncOffsetMortgageDeduction({
-    totalPayment,
-    occurredOn: input.occurredOn,
   });
 
   return "mortgage-period";

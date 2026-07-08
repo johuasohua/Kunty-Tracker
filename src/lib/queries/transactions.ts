@@ -99,10 +99,12 @@ export async function createTransaction(input: TransactionInput) {
   if (error) throw error;
   const transaction = data as Transaction;
 
-  // "Mortgage" / "Offset" transactions also populate the mortgage ledger by
-  // default, so logging the payment once keeps both the cash-flow view and
-  // the Mortgage tab current. The transaction is already saved at this point;
-  // a ledger hiccup shouldn't lose it, so sync failures only warn.
+  // "Mortgage" transactions also open the next mortgage_payments period so
+  // logging the payment once keeps both the cash-flow view and the Mortgage
+  // tab current. ("Offset" transactions need no mirroring — the offset panel
+  // derives open months from the transactions themselves.) The transaction is
+  // already saved at this point; a ledger hiccup shouldn't lose it, so sync
+  // failures only warn.
   try {
     const { data: category } = await supabase
       .from("categories")

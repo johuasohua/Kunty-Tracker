@@ -715,6 +715,130 @@ export function buildCcSeries(
   return series;
 }
 
+// ---------------------------------------------------------------------------
+// Offset account — locked ledger history + months derived from transactions
+// ---------------------------------------------------------------------------
+
+export interface OffsetSeriesPoint {
+  id: string | null; // ledger row id for locked periods; null for derived months
+  periodNo: number;
+  periodMonth: string; // "YYYY-MM"
+  openingBalance: number;
+  closingBalance: number;
+  depositAmount: number;
+  mortgageDeduction: number;
+  transactionNote: string | null;
+  locked: boolean; // true = stored ledger row (immutable history); false = derived
+}
+
+/**
+ * Offset account running balance, mirroring the savings-tab pattern:
+ * `offset_account_periods` rows are locked, reconciled history rendered
+ * verbatim; months after the last locked period are derived live from
+ *   deposits   = Offset-category transactions that month (logged from either
+ *                the Transactions tab or the Mortgage tab — both create the
+ *                same transaction row), and
+ *   deduction  = that month's mortgage_payments total (P + I + insurance + HOI).
+ * Nothing derived is stored, so editing/deleting/backdating an offset
+ * transaction is reflected automatically and can never drift.
+ */
+export function buildOffsetSeries(input: {
+  lockedPeriods: {
+    id: string;
+    period_no: number;
+    period_month: string; // "YYYY-MM"
+    opening_balance: number;
+    closing_balance: number;
+    deposit_amount: number;
+    mortgage_deduction: number;
+    transaction_note: string | null;
+  }[];
+  transactions: LightTransaction[];
+  offsetCategoryId: string | null | undefined;
+  mortgagePayments: MortgagePayment[];
+  endMonth: Date;
+}): OffsetSeriesPoint[] {
+  const locked = [...input.lockedPeriods].sort((a, b) => a.period_no - b.period_no);
+
+  const series: OffsetSeriesPoint[] = locked.map((p) => ({
+    id: p.id,
+    periodNo: p.period_no,
+    periodMonth: p.period_month,
+    openingBalance: p.opening_balance,
+    closingBalance: p.closing_balance,
+    depositAmount: p.deposit_amount,
+    mortgageDeduction: p.mortgage_deduction,
+    transactionNote: p.transaction_note,
+    locked: true,
+  }));
+
+  // Deposits per month: Offset-category expense transactions.
+  const depositsByMonth = new Map<string, number>();
+  if (input.offsetCategoryId) {
+    for (const t of input.transactions) {
+      if (t.category_id !== input.offsetCategoryId || t.type !== "expense") continue;
+      const key = monthKey(new Date(t.occurred_on));
+      depositsByMonth.set(key, (depositsByMonth.get(key) ?? 0) + t.amount);
+    }
+  }
+
+  // Mortgage deduction per month: the full amount leaving the offset account.
+  const deductionByMonth = new Map<string, number>();
+  for (const p of input.mortgagePayments) {
+    const key = monthKey(new Date(p.payment_date));
+    const total =
+      p.principal_amount + p.interest_amount + p.insurance_amount + p.hoi_charge;
+    deductionByMonth.set(key, (deductionByMonth.get(key) ?? 0) + total);
+  }
+
+  // Derivation starts the month after the last locked period; with no locked
+  // history it starts at the earliest offset activity.
+  const last = locked[locked.length - 1] ?? null;
+  let cursor: Date;
+  if (last) {
+    const [y, m] = last.period_month.split("-").map(Number);
+    cursor = new Date(y, m - 1 + 1, 1);
+  } else {
+    const activityKeys = [...depositsByMonth.keys(), ...deductionByMonth.keys()].sort();
+    if (activityKeys.length === 0) return series;
+    const [y, m] = activityKeys[0].split("-").map(Number);
+    cursor = new Date(y, m - 1, 1);
+  }
+
+  const end = new Date(input.endMonth.getFullYear(), input.endMonth.getMonth(), 1);
+  let running = last?.closing_balance ?? 0;
+  let periodNo = last?.period_no ?? 0;
+
+  while (cursor <= end) {
+    const key = monthKey(cursor);
+    const deposit = depositsByMonth.get(key) ?? 0;
+    const deduction = deductionByMonth.get(key) ?? 0;
+    const opening = running;
+    const closing = opening + deposit - deduction;
+    periodNo += 1;
+
+    const noteParts: string[] = [];
+    if (deposit > 0) noteParts.push(`Deposit ${Math.round(deposit)}`);
+    if (deduction > 0) noteParts.push("Mortgage payment");
+
+    series.push({
+      id: null,
+      periodNo,
+      periodMonth: key,
+      openingBalance: opening,
+      closingBalance: closing,
+      depositAmount: deposit,
+      mortgageDeduction: deduction,
+      transactionNote: noteParts.length > 0 ? noteParts.join(" + ") : null,
+      locked: false,
+    });
+    running = closing;
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return series;
+}
+
 export interface BudgetProgressRow {
   person: Person | null; // null = shared budget across both people
   budgetAmount: number;
