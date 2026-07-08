@@ -1229,8 +1229,11 @@ export function buildSavingsData({
         totalIncome += t.amount;
       } else if (t.type === "expense" && t.payment_method === "debit") {
         // Credit-card purchases are realized as ccPaidOff, not here.
-        const sign = treatAs.get(t.category_id) === "offset" ? -1 : 1;
-        debitExpense += sign * t.amount;
+        // Exclude offset/refund transfers—they're not spending, already tracked separately.
+        const treatAsValue = treatAs.get(t.category_id);
+        if (treatAsValue !== "offset") {
+          debitExpense += t.amount;
+        }
       }
     }
 
