@@ -31,9 +31,10 @@ export interface SavingsMonth {
   month: Date;
   openingBalance: number;
   totalIncome: number;
-  debitExpense: number; // expenses paid with debit
+  debitExpense: number; // expenses paid with debit (non-offset)
   ccPaidOff: number; // credit card payment amounts
-  totalExpense: number; // all expenses (debit + credit)
+  offsetTransfers: number; // offset account deposits (cash out)
+  totalExpense: number; // all expenses (debit + cc paid + offset)
   closingBalance: number;
   amountSaved: number; // closing - opening
 }
@@ -1179,6 +1180,7 @@ export function buildSavingsData({
     totalIncome: p.total_income,
     debitExpense: p.debit_expense,
     ccPaidOff: p.cc_paid_off,
+    offsetTransfers: 0, // locked historical data doesn't break out offset
     totalExpense: p.total_expense,
     closingBalance: p.closing_balance,
     amountSaved: p.amount_saved,
@@ -1257,6 +1259,7 @@ export function buildSavingsData({
         totalIncome,
         debitExpense,
         ccPaidOff,
+        offsetTransfers,
         totalExpense,
         closingBalance: closing,
         amountSaved,

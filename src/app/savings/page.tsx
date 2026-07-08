@@ -88,6 +88,7 @@ function SavingsPageContent() {
               <th className="px-3 py-2.5 text-right md:px-4">Opening</th>
               <th className="px-3 py-2.5 text-right md:px-4">Income</th>
               <th className="px-3 py-2.5 text-right md:px-4">Debit Exp</th>
+              <th className="px-3 py-2.5 text-right md:px-4">Offset</th>
               <th className="px-3 py-2.5 text-right md:px-4">CC Paid</th>
               <th className="px-3 py-2.5 text-right md:px-4">Total Exp</th>
               <th className="px-3 py-2.5 text-right md:px-4">Closing</th>
@@ -116,6 +117,9 @@ function SavingsPageContent() {
                 </td>
                 <td className="px-3 py-2.5 text-right text-ios-label md:px-4">
                   {formatMoney(month.debitExpense)}
+                </td>
+                <td className="px-3 py-2.5 text-right text-ios-red md:px-4">
+                  {formatMoney(month.offsetTransfers)}
                 </td>
                 <td className="px-3 py-2.5 text-right text-ios-label md:px-4">
                   {formatMoney(month.ccPaidOff)}
