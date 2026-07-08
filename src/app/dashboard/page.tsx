@@ -28,6 +28,7 @@ import { monthKey, formatMoney } from "@/lib/format";
 import { SpeakTransactionButton } from "@/components/voice/SpeakTransactionButton";
 import { MonthSelector } from "@/components/dashboard/MonthSelector";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
+import { ReconciliationCard } from "@/components/dashboard/ReconciliationCard";
 import { CategorySpendCards } from "@/components/dashboard/CategorySpendCards";
 import { AccountBreakdownTable } from "@/components/dashboard/AccountBreakdownTable";
 import { MonthlyReviewCard } from "@/components/dashboard/MonthlyReviewCard";
@@ -136,6 +137,44 @@ export default function DashboardPage() {
     return map;
   }, [people, transactions, ccPayments, openingBalances, month]);
 
+  // Reconciliation: dashboard cash (accrual) + outstanding cards owed should
+  // equal the settled-cash Savings closing for the same month.
+  const reconciliation = useMemo(() => {
+    if (!currentPoint) return null;
+    const key = monthKey(month);
+
+    let cardsOwed = 0;
+    for (const p of people) {
+      const s = ccSeriesByPerson.get(p.id) ?? [];
+      const pt = s.find((x) => x.key === key);
+      if (pt) cardsOwed += pt.closing;
+    }
+
+    const savingsMonths = buildSavingsData({
+      transactions,
+      categories,
+      ccPayments,
+      lockedPeriods: lockedSavings,
+      endMonth: month,
+    });
+    const savingsPoint = savingsMonths.find((m) => m.key === key) ?? null;
+
+    return {
+      cash: currentPoint.closing,
+      cardsOwed,
+      savingsClosing: savingsPoint?.closingBalance ?? null,
+    };
+  }, [
+    currentPoint,
+    month,
+    people,
+    ccSeriesByPerson,
+    transactions,
+    categories,
+    ccPayments,
+    lockedSavings,
+  ]);
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -173,6 +212,16 @@ export default function DashboardPage() {
           <div className="mb-6">
             <BalanceCard point={currentPoint} />
           </div>
+
+          {reconciliation && (
+            <div className="mb-6">
+              <ReconciliationCard
+                cash={reconciliation.cash}
+                cardsOwed={reconciliation.cardsOwed}
+                savingsClosing={reconciliation.savingsClosing}
+              />
+            </div>
+          )}
 
           <UpcomingBillsList bills={upcomingBills} categories={categories} />
 
