@@ -1311,8 +1311,6 @@ export function buildThreeMonthSpendAnalysis(
   categories: Category[],
   endMonth: Date
 ): CategoryMonthlySpend[] {
-  const treatAs = categoryTreatAsMap(categories);
-
   // Get the 3 months: current and 2 previous
   const months: { key: string; date: Date }[] = [];
   for (let i = 2; i >= 0; i--) {
@@ -1337,10 +1335,12 @@ export function buildThreeMonthSpendAnalysis(
           monthKey(new Date(t.occurred_on)) === m.key
       );
 
+      // Offset categories (e.g. Offset transfers, Refunds) show their actual
+      // total as a positive bar, alongside spend categories — rather than
+      // being netted to zero and hidden.
       let amount = 0;
       for (const t of catTransactions) {
-        const sign = treatAs.get(t.category_id) === "offset" ? -1 : 1;
-        amount += sign * t.amount;
+        amount += t.amount;
       }
 
       return {
