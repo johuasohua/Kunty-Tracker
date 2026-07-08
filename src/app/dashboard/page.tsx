@@ -13,7 +13,6 @@ import { useSavingsPeriods } from "@/lib/queries/savings-periods";
 import {
   buildMonthlySeries,
   buildCcSeries,
-  breakdownByCategory,
   breakdownByCategoryForYear,
   buildCategorySpendCards,
   buildSavingsData,
@@ -30,7 +29,6 @@ import { MonthSelector } from "@/components/dashboard/MonthSelector";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { ReconciliationCard } from "@/components/dashboard/ReconciliationCard";
 import { CategorySpendCards } from "@/components/dashboard/CategorySpendCards";
-import { AccountBreakdownTable } from "@/components/dashboard/AccountBreakdownTable";
 import { MonthlyReviewCard } from "@/components/dashboard/MonthlyReviewCard";
 import { AnnualTrendChart } from "@/components/dashboard/AnnualTrendChart";
 import { AnnualCategoryList } from "@/components/dashboard/AnnualCategoryList";
@@ -75,11 +73,6 @@ export default function DashboardPage() {
     const key = monthKey(month);
     return series.find((p) => p.key === key) ?? null;
   }, [series, month]);
-
-  const currentBreakdown = useMemo(
-    () => breakdownByCategory(transactions, categories, month),
-    [transactions, categories, month]
-  );
 
   const categoryCards = useMemo(
     () => buildCategorySpendCards(transactions, categories, month),
@@ -269,8 +262,6 @@ export default function DashboardPage() {
           )}
 
           <CategorySpendCards cards={categoryCards} monthKey={monthKey(month)} />
-
-          <AccountBreakdownTable breakdown={currentBreakdown} people={people} />
 
           {cashNudge && (
             <Link href="/savings" className="mb-6 block">

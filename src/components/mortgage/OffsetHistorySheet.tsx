@@ -17,8 +17,8 @@ export function OffsetHistorySheet({
   series: OffsetSeriesPoint[];
   onDeleted?: () => void;
 }) {
-  // Newest first
-  const rows = [...series].reverse();
+  // Newest first; show only locked (historical) rows
+  const rows = [...series].filter((p) => p.locked).reverse();
 
   async function handleDelete(id: string, month: string) {
     if (
