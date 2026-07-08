@@ -114,7 +114,7 @@ function SavingsPageContent() {
                 <td className="px-3 py-2.5 text-right text-ios-green md:px-4">
                   {formatMoney(month.totalIncome)}
                 </td>
-                <td className="px-3 py-2.5 text-right text-ios-red md:px-4">
+                <td className="px-3 py-2.5 text-right text-ios-label md:px-4">
                   {formatMoney(month.cashOut)}
                 </td>
                 <td className="px-3 py-2.5 text-right text-ios-label md:px-4">
