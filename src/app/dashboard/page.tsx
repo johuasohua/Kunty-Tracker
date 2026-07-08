@@ -6,7 +6,7 @@ import { Sparkles, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { useCategories } from "@/lib/queries/categories";
+import { useCategories, useAllCategories } from "@/lib/queries/categories";
 import { useProfile } from "@/lib/profile-context";
 import { useDashboardData } from "@/lib/queries/dashboard-data";
 import { useSavingsPeriods } from "@/lib/queries/savings-periods";
@@ -43,6 +43,7 @@ import type { Person } from "@/lib/types";
 
 export default function DashboardPage() {
   const { categories, loading: categoriesLoading } = useCategories();
+  const { categories: allCategories, loading: allCategoriesLoading } = useAllCategories();
   const { people } = useProfile();
   const { transactions, seed, loading: dataLoading } = useDashboardData();
   const { periods: lockedSavings } = useSavingsPeriods();
@@ -62,11 +63,11 @@ export default function DashboardPage() {
   const [year, setYear] = useState(() => new Date().getFullYear());
 
   const loading =
-    categoriesLoading || dataLoading || ccLoading || budgetsLoading || billsLoading;
+    categoriesLoading || allCategoriesLoading || dataLoading || ccLoading || budgetsLoading || billsLoading;
 
   const series = useMemo(
-    () => buildMonthlySeries(transactions, categories, seed, month),
-    [transactions, categories, seed, month]
+    () => buildMonthlySeries(transactions, allCategories, seed, month),
+    [transactions, allCategories, seed, month]
   );
 
   const currentPoint: MonthPoint | null = useMemo(() => {
@@ -75,13 +76,13 @@ export default function DashboardPage() {
   }, [series, month]);
 
   const categoryCards = useMemo(
-    () => buildCategorySpendCards(transactions, categories, month),
-    [transactions, categories, month]
+    () => buildCategorySpendCards(transactions, allCategories, month),
+    [transactions, allCategories, month]
   );
 
   const monthlyReview = useMemo(
-    () => computeMonthlyReview(transactions, categories, budgets, people, month),
-    [transactions, categories, budgets, people, month]
+    () => computeMonthlyReview(transactions, allCategories, budgets, people, month),
+    [transactions, allCategories, budgets, people, month]
   );
 
   // Lightweight cash-deployment nudge: does savings sit above the buffer? The
@@ -89,24 +90,24 @@ export default function DashboardPage() {
   const cashNudge = useMemo(() => {
     const savingsMonths = buildSavingsData({
       transactions,
-      categories,
+      categories: allCategories,
       ccPayments,
       lockedPeriods: lockedSavings,
       endMonth: new Date(),
     });
     return computeCashDeployment({ savingsMonths, offsetBase: null });
-  }, [transactions, categories, ccPayments, lockedSavings]);
+  }, [transactions, allCategories, ccPayments, lockedSavings]);
 
   const yearSeries = useMemo(() => {
     const end = new Date(year, 11, 1);
-    return buildMonthlySeries(transactions, categories, seed, end).filter(
+    return buildMonthlySeries(transactions, allCategories, seed, end).filter(
       (p) => p.date.getFullYear() === year
     );
-  }, [transactions, categories, seed, year]);
+  }, [transactions, allCategories, seed, year]);
 
   const annualTotals = useMemo(
-    () => breakdownByCategoryForYear(transactions, categories, year),
-    [transactions, categories, year]
+    () => breakdownByCategoryForYear(transactions, allCategories, year),
+    [transactions, allCategories, year]
   );
 
   const yearIncome = yearSeries.reduce((sum, p) => sum + p.totalIncome, 0);
@@ -132,11 +133,11 @@ export default function DashboardPage() {
     for (const p of people) {
       map.set(
         p.id,
-        buildCcSeries(transactions, ccPayments, openingBalances, p.id, month, categories, ccStatements)
+        buildCcSeries(transactions, ccPayments, openingBalances, p.id, month, allCategories, ccStatements)
       );
     }
     return map;
-  }, [people, transactions, ccPayments, openingBalances, month, categories, ccStatements]);
+  }, [people, transactions, ccPayments, openingBalances, month, allCategories, ccStatements]);
 
   // Reconciliation: dashboard cash (accrual) + outstanding cards owed should
   // equal the settled-cash Savings closing for the same month.
@@ -153,7 +154,7 @@ export default function DashboardPage() {
 
     const savingsMonths = buildSavingsData({
       transactions,
-      categories,
+      categories: allCategories,
       ccPayments,
       lockedPeriods: lockedSavings,
       endMonth: month,
@@ -171,7 +172,7 @@ export default function DashboardPage() {
     people,
     ccSeriesByPerson,
     transactions,
-    categories,
+    allCategories,
     ccPayments,
     lockedSavings,
   ]);
