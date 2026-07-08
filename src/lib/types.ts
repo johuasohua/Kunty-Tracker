@@ -1,6 +1,12 @@
 export type PaymentMethod = "credit" | "debit";
 export type TransactionType = "income" | "expense";
-export type CategoryTreatAs = "expense" | "income" | "offset";
+// "offset"   = contra-expense: money coming back (e.g. Refunds) — reduces
+//              expense totals and is displayed as "+" in transaction lists.
+// "transfer" = money moved out to another own account (e.g. mortgage-offset
+//              deposits) — behaves like "offset" in every aggregate (excluded
+//              from CC spend, counts as settlement cash-out) but is displayed
+//              as "−" because the cash genuinely leaves.
+export type CategoryTreatAs = "expense" | "income" | "offset" | "transfer";
 export type EntrySource = "manual" | "voice" | "shortcut" | "import";
 
 export interface Person {

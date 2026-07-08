@@ -46,6 +46,17 @@ function categoryTreatAsMap(categories: Category[]) {
 }
 
 /**
+ * "offset" (contra-expense, e.g. Refunds) and "transfer" (money moved to an
+ * own account, e.g. mortgage-offset deposits) behave identically in every
+ * aggregate — neither is card spend, both leave settlement cash. They differ
+ * only in list display sign (+ refund, − transfer), which the transaction
+ * list components handle.
+ */
+function isOffsetLike(treatAs: Category["treat_as"] | undefined) {
+  return treatAs === "offset" || treatAs === "transfer";
+}
+
+/**
  * Builds a chronological, gap-free monthly series from the earliest
  * transaction (or the opening balance seed month, if earlier) through the
  * given end month, with running opening/closing balances.
@@ -653,8 +664,8 @@ export function buildCcSeries(
   const spendByMonth = new Map<string, { credit: number; debit: number }>();
   for (const t of personTransactions) {
     if (t.type !== "expense") continue;
-    // Exclude offset transactions from CC calculations — they're cash out to a loan account, not CC spending
-    if (treatAsMap.get(t.category_id) === "offset") continue;
+    // Exclude offset/transfer transactions from CC calculations — they're cash out to a loan account, not CC spending
+    if (isOffsetLike(treatAsMap.get(t.category_id))) continue;
     const key = monthKey(new Date(t.occurred_on));
     const bucket = spendByMonth.get(key) ?? { credit: 0, debit: 0 };
     if (t.payment_method === "credit") bucket.credit += t.amount;
@@ -1104,7 +1115,7 @@ export function computeBudgetProgressForYear(
     if (t.type !== "expense") continue;
     const d = new Date(t.occurred_on);
     if (d.getFullYear() !== year) continue;
-    const sign = categoryTreatAs.get(t.category_id) === "offset" ? -1 : 1;
+    const sign = isOffsetLike(categoryTreatAs.get(t.category_id)) ? -1 : 1;
 
     const key = `${t.category_id}:${t.person_id}`;
     actualByKey.set(key, (actualByKey.get(key) ?? 0) + sign * t.amount);
@@ -1379,7 +1390,7 @@ export function buildSavingsData({
         totalIncome += t.amount;
       } else if (t.type === "expense") {
         const treatAsValue = treatAs.get(t.category_id);
-        if (treatAsValue === "offset" || t.payment_method === "debit") {
+        if (isOffsetLike(treatAsValue) || t.payment_method === "debit") {
           // Both offset transfers and debit spending reduce settlement cash
           cashOut += t.amount;
         }
@@ -1639,7 +1650,7 @@ export function summarizeTransactions(
     const key = monthKey(new Date(t.occurred_on));
     if (!bucket.has(key)) continue; // outside the range
     let signed = t.amount;
-    if (t.type === "expense" && treatAs.get(t.category_id) === "offset") {
+    if (t.type === "expense" && isOffsetLike(treatAs.get(t.category_id))) {
       signed = -t.amount;
     }
     bucket.set(key, (bucket.get(key) ?? 0) + signed);

@@ -14,6 +14,7 @@ const TREAT_AS_LABEL: Record<Category["treat_as"], string> = {
   expense: "Expense",
   income: "Income",
   offset: "Offsets expense",
+  transfer: "Transfer out",
 };
 
 export default function ManageCategoriesPage() {
