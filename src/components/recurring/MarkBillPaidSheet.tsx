@@ -27,13 +27,11 @@ export function MarkBillPaidSheet({
   onSaved: () => void;
 }) {
   const { activePerson } = useProfile();
-  const [createTransaction, setCreateTransaction] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (bill) {
-      setCreateTransaction(true);
       setError("");
     }
   }, [bill]);
@@ -46,23 +44,23 @@ export function MarkBillPaidSheet({
       const cycleDueDate = currentCycleDueDate(bill, payments);
       const cycleDueDateStr = dateOnlyString(cycleDueDate);
       const personId = bill.owner_person_id ?? activePerson?.id;
+      const shouldCreateTransaction = !!bill.category_id && !!personId;
 
       await markBillPaid({
         recurring_bill_id: bill.id,
         month: cycleDueDateStr,
-        createTransaction: createTransaction && !!bill.category_id && !!personId,
-        transactionDetails:
-          createTransaction && bill.category_id && personId
-            ? {
-                occurred_on: dateOnlyString(new Date()),
-                amount: bill.amount,
-                category_id: bill.category_id,
-                person_id: personId,
-                payment_method: bill.default_payment_method ?? "credit",
-                note: bill.name,
-                created_by_person_id: activePerson?.id ?? null,
-              }
-            : undefined,
+        createTransaction: shouldCreateTransaction,
+        transactionDetails: shouldCreateTransaction
+          ? {
+              occurred_on: dateOnlyString(new Date()),
+              amount: bill.amount,
+              category_id: bill.category_id!,
+              person_id: personId!,
+              payment_method: bill.default_payment_method ?? "credit",
+              note: bill.name,
+              created_by_person_id: activePerson?.id ?? null,
+            }
+          : undefined,
       });
       onSaved();
       onClose();
@@ -72,6 +70,11 @@ export function MarkBillPaidSheet({
       setSaving(false);
     }
   }
+
+  const canCreateTransaction = bill && !!bill.category_id && !!bill.owner_person_id;
+  const warningText = bill && !canCreateTransaction
+    ? bill.category_id ? "Bill is missing owner assignment" : "Bill is missing category"
+    : null;
 
   return (
     <Sheet open={!!bill} onClose={onClose} title="Mark as Paid">
@@ -88,17 +91,17 @@ export function MarkBillPaidSheet({
             due date.
           </p>
 
-          <label className="flex items-center gap-2 rounded-xl bg-ios-fill px-3 py-2.5">
-            <input
-              type="checkbox"
-              checked={createTransaction}
-              onChange={(e) => setCreateTransaction(e.target.checked)}
-              className="h-4 w-4"
-            />
-            <span className="text-[14px] text-ios-label">
-              Also log this as a transaction
-            </span>
-          </label>
+          {canCreateTransaction && (
+            <div className="rounded-xl bg-ios-blue/10 px-3 py-2 text-[13px] text-ios-blue">
+              ✓ Will be logged as a transaction automatically
+            </div>
+          )}
+
+          {warningText && (
+            <div className="rounded-xl bg-ios-orange/10 px-3 py-2 text-[13px] text-ios-orange">
+              ⚠️ {warningText} — bill will be marked paid but not logged as a transaction
+            </div>
+          )}
 
           {error && <p className="text-[13px] text-ios-red">{error}</p>}
 
