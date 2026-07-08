@@ -1,6 +1,7 @@
 import type {
   Budget,
   CcPayment,
+  CcStatement,
   Category,
   MortgagePayment,
   OpeningCcBalance,
@@ -624,7 +625,8 @@ export function buildCcSeries(
   openingBalances: OpeningCcBalance[],
   personId: string,
   endMonth: Date,
-  categories?: Category[]
+  categories?: Category[],
+  statements?: CcStatement[]
 ): CcMonthPoint[] {
   const seed = openingBalances.find((b) => b.person_id === personId) ?? null;
   const personTransactions = transactions.filter((t) => t.person_id === personId);
@@ -634,6 +636,17 @@ export function buildCcSeries(
   if (categories) {
     for (const c of categories) {
       treatAsMap.set(c.id, c.treat_as);
+    }
+  }
+
+  // Statement overrides: for a closed billing cycle whose real statement total
+  // is known, use that figure as the month's credit spend instead of the
+  // calendar-month sum (CC cycles aren't 1st-to-31st, so they won't match).
+  const statementByMonth = new Map<string, number>();
+  if (statements) {
+    for (const s of statements) {
+      if (s.person_id !== personId) continue;
+      statementByMonth.set(monthKey(new Date(s.month)), s.statement_amount);
     }
   }
 
@@ -678,14 +691,16 @@ export function buildCcSeries(
   while (cursor <= end) {
     const key = monthKey(cursor);
     const spend = spendByMonth.get(key) ?? { credit: 0, debit: 0 };
+    // Prefer a known statement total over the derived calendar-month credit sum.
+    const creditSpend = statementByMonth.get(key) ?? spend.credit;
     const paidOff = paidByMonth.get(key) ?? 0;
     const paymentDate = paymentDateByMonth.get(key);
     const carryOver = running;
-    const closing = carryOver + spend.credit - paidOff;
+    const closing = carryOver + creditSpend - paidOff;
     series.push({
       key,
       date: new Date(cursor),
-      currentSpend: spend.credit,
+      currentSpend: creditSpend,
       debitSpend: spend.debit,
       paidOff,
       paymentDate,

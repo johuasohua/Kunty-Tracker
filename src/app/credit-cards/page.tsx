@@ -28,7 +28,7 @@ function CreditCardsPageContent() {
   const { people } = useProfile();
   const { transactions, loading: txLoading } = useDashboardData();
   const { categories, loading: categoriesLoading } = useCategories();
-  const { openingBalances, payments, loading: ccLoading, refresh } = useCcData();
+  const { openingBalances, payments, statements, loading: ccLoading, refresh } = useCcData();
 
   const [personId, setPersonId] = useState<string | null>(
     () => searchParams.get("person")
@@ -40,8 +40,8 @@ function CreditCardsPageContent() {
 
   const series = useMemo(() => {
     if (!activePersonId) return [];
-    return buildCcSeries(transactions, payments, openingBalances, activePersonId, new Date(), categories);
-  }, [transactions, payments, openingBalances, activePersonId, categories]);
+    return buildCcSeries(transactions, payments, openingBalances, activePersonId, new Date(), categories, statements);
+  }, [transactions, payments, openingBalances, activePersonId, categories, statements]);
 
   const loading = txLoading || ccLoading || categoriesLoading;
 

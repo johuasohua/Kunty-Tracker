@@ -98,3 +98,12 @@ export interface OpeningCcBalance {
   as_of_month: string;
   balance: number;
 }
+
+export interface CcStatement {
+  id: string;
+  person_id: string;
+  month: string;
+  statement_amount: number;
+  note: string | null;
+  created_at: string;
+}

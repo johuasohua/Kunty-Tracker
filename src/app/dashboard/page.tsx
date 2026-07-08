@@ -48,8 +48,13 @@ export default function DashboardPage() {
   const { people } = useProfile();
   const { transactions, seed, loading: dataLoading } = useDashboardData();
   const { periods: lockedSavings } = useSavingsPeriods();
-  const { openingBalances, payments: ccPayments, loading: ccLoading, refresh: refreshCc } =
-    useCcData();
+  const {
+    openingBalances,
+    payments: ccPayments,
+    statements: ccStatements,
+    loading: ccLoading,
+    refresh: refreshCc,
+  } = useCcData();
   const { budgets, loading: budgetsLoading } = useBudgets();
   const { bills, payments: billPayments, loading: billsLoading } = useRecurringBills();
   const [markPaidPerson, setMarkPaidPerson] = useState<Person | null>(null);
@@ -132,10 +137,13 @@ export default function DashboardPage() {
   const ccSeriesByPerson = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildCcSeries>>();
     for (const p of people) {
-      map.set(p.id, buildCcSeries(transactions, ccPayments, openingBalances, p.id, month, categories));
+      map.set(
+        p.id,
+        buildCcSeries(transactions, ccPayments, openingBalances, p.id, month, categories, ccStatements)
+      );
     }
     return map;
-  }, [people, transactions, ccPayments, openingBalances, month, categories]);
+  }, [people, transactions, ccPayments, openingBalances, month, categories, ccStatements]);
 
   // Reconciliation: dashboard cash (accrual) + outstanding cards owed should
   // equal the settled-cash Savings closing for the same month.
