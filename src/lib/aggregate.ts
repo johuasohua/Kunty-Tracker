@@ -31,10 +31,9 @@ export interface SavingsMonth {
   month: Date;
   openingBalance: number;
   totalIncome: number;
-  debitExpense: number; // expenses paid with debit (non-offset)
+  cashOut: number; // debit spending + offset transfers
   ccPaidOff: number; // credit card payment amounts
-  offsetTransfers: number; // offset account deposits (cash out)
-  totalExpense: number; // all expenses (debit + cc paid + offset)
+  totalExpense: number; // all expenses (cash out + cc paid)
   closingBalance: number;
   amountSaved: number; // closing - opening
 }
@@ -1178,9 +1177,8 @@ export function buildSavingsData({
     month: new Date(`${p.period_month}-01T00:00:00`),
     openingBalance: p.opening_balance,
     totalIncome: p.total_income,
-    debitExpense: p.debit_expense,
+    cashOut: p.debit_expense, // historical data doesn't separate offset; debit_expense is the total cash out
     ccPaidOff: p.cc_paid_off,
-    offsetTransfers: 0, // locked historical data doesn't break out offset
     totalExpense: p.total_expense,
     closingBalance: p.closing_balance,
     amountSaved: p.amount_saved,
@@ -1224,26 +1222,22 @@ export function buildSavingsData({
     const monthCcPayments = ccByMonth.get(key) ?? [];
 
     let totalIncome = 0;
-    let debitExpense = 0;
-    let offsetTransfers = 0;
+    let cashOut = 0; // debit spending + offset transfers
 
     for (const t of monthTxs) {
       if (t.type === "income") {
         totalIncome += t.amount;
       } else if (t.type === "expense") {
         const treatAsValue = treatAs.get(t.category_id);
-        if (treatAsValue === "offset") {
-          // Offset transfers (cash to offset account) reduce settlement cash
-          offsetTransfers += t.amount;
-        } else if (t.payment_method === "debit") {
-          // Credit-card purchases are realized as ccPaidOff, not here.
-          debitExpense += t.amount;
+        if (treatAsValue === "offset" || t.payment_method === "debit") {
+          // Both offset transfers and debit spending reduce settlement cash
+          cashOut += t.amount;
         }
       }
     }
 
     const ccPaidOff = monthCcPayments.reduce((sum, c) => sum + c.amount_paid, 0);
-    const totalExpense = debitExpense + ccPaidOff + offsetTransfers;
+    const totalExpense = cashOut + ccPaidOff;
     const opening = running;
     const closing = opening + totalIncome - totalExpense;
     const amountSaved = closing - opening;
@@ -1257,9 +1251,8 @@ export function buildSavingsData({
         month: new Date(cursor),
         openingBalance: opening,
         totalIncome,
-        debitExpense,
+        cashOut,
         ccPaidOff,
-        offsetTransfers,
         totalExpense,
         closingBalance: closing,
         amountSaved,
