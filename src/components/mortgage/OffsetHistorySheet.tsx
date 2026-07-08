@@ -67,10 +67,9 @@ export function OffsetHistorySheet({
                 <tr
                   key={p.id}
                   className={
-                    "group" +
-                    (idx !== rows.length - 1
-                      ? " border-b border-ios-separator"
-                      : "")
+                    idx !== rows.length - 1
+                      ? "border-b border-ios-separator"
+                      : ""
                   }
                 >
                   <td className="px-3 py-3 text-ios-label">
@@ -94,7 +93,7 @@ export function OffsetHistorySheet({
                   <td className="px-3 py-3">
                     <button
                       onClick={() => handleDelete(p.id, p.period_month)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full bg-ios-fill text-ios-red opacity-0 group-hover:opacity-100"
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-ios-fill text-ios-red"
                       aria-label={`Delete ${p.period_month} entry`}
                     >
                       <Trash2 size={13} />
