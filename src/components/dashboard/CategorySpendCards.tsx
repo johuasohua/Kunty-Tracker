@@ -5,7 +5,14 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { formatMoney } from "@/lib/format";
 import type { CategorySpendCard } from "@/lib/aggregate";
+import type { Category } from "@/lib/types";
 import { Sparkline } from "./Sparkline";
+
+// Offset/transfer categories are lump-sum, not recurring monthly spend — the
+// card shows a 6-month total instead of a single-month MoM comparison.
+function isLumpSum(treatAs: Category["treat_as"]) {
+  return treatAs === "offset" || treatAs === "transfer";
+}
 
 export function CategorySpendCards({
   cards,
@@ -48,7 +55,11 @@ export function CategorySpendCards({
               <span className="truncate text-[15px] font-semibold text-ios-label">
                 {formatMoney(c.current)}
               </span>
-              <DeltaBadge delta={c.delta} />
+              {isLumpSum(c.category.treat_as) ? (
+                <span className="shrink-0 text-[11px] text-ios-label-tertiary">6mo</span>
+              ) : (
+                <DeltaBadge delta={c.delta} />
+              )}
             </div>
           </button>
         ))}

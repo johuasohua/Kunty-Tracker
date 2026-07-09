@@ -162,9 +162,9 @@ export function breakdownByCategory(
 
 export interface CategorySpendCard {
   category: Category;
-  current: number; // this-month spend
+  current: number; // this-month spend (6-month total for offset/transfer categories — see below)
   previous: number; // last-month spend
-  delta: number | null; // fraction vs last month; null when last month was 0
+  delta: number | null; // fraction vs last month; null when last month was 0, or n/a
   spark: number[]; // trailing monthly totals, oldest → newest (current month last)
 }
 
@@ -172,6 +172,12 @@ export interface CategorySpendCard {
  * One card per expense category with spend this month: the current and
  * previous month totals (for a MoM %), plus a trailing sparkline series.
  * Replaces the single spend donut with a per-category grid.
+ *
+ * Offset/transfer categories (e.g. Offset/Rak deposits) are lump-sum, not
+ * recurring monthly spend — a single-month snapshot is usually 0 and
+ * contradicts the sparkline, which plots the same trailing window. For those
+ * categories only, the headline figure is the sum across the sparkline's
+ * window instead of the current month alone; MoM delta doesn't apply.
  */
 export function buildCategorySpendCards(
   transactions: LightTransaction[],
@@ -200,6 +206,13 @@ export function buildCategorySpendCards(
   for (const cat of categories) {
     if (cat.treat_as === "income") continue;
     const spark = months.map((m) => totalsByMonth.get(monthKey(m))?.get(cat.id) ?? 0);
+
+    if (isOffsetLike(cat.treat_as)) {
+      const total = spark.reduce((sum, v) => sum + v, 0);
+      cards.push({ category: cat, current: total, previous: 0, delta: null, spark });
+      continue;
+    }
+
     const current = totalsByMonth.get(currentKey)?.get(cat.id) ?? 0;
     const previous = totalsByMonth.get(previousKey)?.get(cat.id) ?? 0;
     const delta = previous > 0 ? (current - previous) / previous : null;
