@@ -177,6 +177,7 @@ function Stat({
       <div className="text-[12px] text-ios-label-secondary">{label}</div>
       <Money
         value={value}
+        stacked
         className={
           "font-semibold " +
           (emphasize ? "text-[17px] " : "text-[15px] ") +
