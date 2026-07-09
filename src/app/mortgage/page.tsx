@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -18,11 +19,16 @@ import { PaymentHistoryTable } from "@/components/mortgage/PaymentHistoryTable";
 import { LogTransactionSheet } from "@/components/mortgage/LogTransactionSheet";
 
 export default function MortgagePage() {
+  const searchParams = useSearchParams();
   const { categories } = useCategories();
   const { payments, loading, refresh } = useMortgagePayments();
   const { periods: lockedOffsetPeriods, refresh: refreshOffset } = useOffsetAccount();
   const { transactions, refresh: refreshTransactions } = useDashboardData();
   const [logOpen, setLogOpen] = useState(false);
+  // Deep-linked from the dashboard's Offset spend card.
+  const [historyOpen, setHistoryOpen] = useState(
+    () => searchParams.get("openHistory") === "1"
+  );
 
   const lastPayment = payments[payments.length - 1] ?? null;
   const offsetCategoryId = categories.find((c) => c.name.toLowerCase() === "offset")?.id;
@@ -83,7 +89,12 @@ export default function MortgagePage() {
           </div>
 
           <div className="mb-6">
-            <OffsetPanel series={offsetSeries} onLedgerChanged={refreshOffset} />
+            <OffsetPanel
+              series={offsetSeries}
+              onLedgerChanged={refreshOffset}
+              historyOpen={historyOpen}
+              onHistoryOpenChange={setHistoryOpen}
+            />
           </div>
 
           <div className="mb-6">

@@ -10,11 +10,17 @@ import { OffsetHistorySheet } from "@/components/mortgage/OffsetHistorySheet";
 export function OffsetPanel({
   series,
   onLedgerChanged,
+  historyOpen: controlledOpen,
+  onHistoryOpenChange,
 }: {
   series: OffsetSeriesPoint[];
   onLedgerChanged?: () => void;
+  historyOpen?: boolean;
+  onHistoryOpenChange?: (open: boolean) => void;
 }) {
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const historyOpen = controlledOpen ?? internalOpen;
+  const setHistoryOpen = onHistoryOpenChange ?? setInternalOpen;
 
   // Earliest period = where offset started
   const firstPeriod = series[0] ?? null;

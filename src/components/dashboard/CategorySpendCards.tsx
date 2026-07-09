@@ -36,9 +36,11 @@ export function CategorySpendCards({
           <button
             key={c.category.id}
             onClick={() =>
-              router.push(
-                `/transactions?category=${c.category.id}&from=${from}&to=${to}`
-              )
+              isLumpSum(c.category.treat_as)
+                ? router.push("/mortgage?openHistory=1")
+                : router.push(
+                    `/transactions?category=${c.category.id}&from=${from}&to=${to}`
+                  )
             }
             className="flex flex-col gap-2 rounded-2xl bg-ios-bg-secondary p-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:bg-ios-fill"
           >
