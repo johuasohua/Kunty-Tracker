@@ -118,7 +118,7 @@ export function QuickAddSheet({
             categories={categories}
             value={categoryId}
             onChange={setCategoryId}
-            exclude={["Mortgage"]}
+            exclude={["Mortgage", "Offset"]}
           />
         </div>
 

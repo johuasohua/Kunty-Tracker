@@ -121,7 +121,7 @@ export function DraftCard({
           value={draft.categoryId}
           onChange={setCategory}
           filter="all"
-          exclude={["Mortgage"]}
+          exclude={["Mortgage", "Offset"]}
         />
       </div>
 

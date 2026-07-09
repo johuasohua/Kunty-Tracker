@@ -45,7 +45,6 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   Travel: ["travel", "flight", "flights", "hotel", "airbnb", "trip"],
   Maintenance: ["maintenance", "repair", "repairs", "plumber", "handyman"],
   Mortgage: ["mortgage", "principal"],
-  Offset: ["offset", "transfer to offset"],
   Refunds: ["refund", "refunds", "reimbursement", "cashback"],
 };
 
@@ -627,7 +626,6 @@ export const VOICE_TEMPLATES: VoiceTemplate[] = [
   { label: "Food Delivery", categoryName: "Food Delivery", example: "Ordered 50 from abad hind" },
   { label: "Instashop", categoryName: "Instashop", example: "Instashop 120 groceries" },
   { label: "Salary", categoryName: "Salary", example: "Salary 10000 credit" },
-  { label: "Offset", categoryName: "Offset", example: "Transfer 5000 to Offset" },
   { label: "Mortgage", categoryName: "Mortgage", example: "Mortgage 5000 principal today" },
 ];
 
