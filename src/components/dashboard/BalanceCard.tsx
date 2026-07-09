@@ -18,10 +18,9 @@ export function BalanceCard({ point }: { point: BalancePoint | null }) {
   if (!point) return null;
 
   return (
-    <Card className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-4">
+    <Card className="grid grid-cols-3 gap-4 p-4">
       <Stat label="Opening" value={point.opening} />
       <Stat label="Income" value={point.income} tone="green" />
-      <Stat label="Cash out" value={point.expense} tone="red" />
       <Stat label="Closing" value={point.closing} emphasize />
     </Card>
   );
