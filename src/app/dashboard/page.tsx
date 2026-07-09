@@ -21,13 +21,11 @@ import {
   computeBudgetProgress,
   computeBudgetProgressForYear,
   computeUpcomingBills,
-  type MonthPoint,
 } from "@/lib/aggregate";
 import { monthKey, formatMoney } from "@/lib/format";
 import { SpeakTransactionButton } from "@/components/voice/SpeakTransactionButton";
 import { MonthSelector } from "@/components/dashboard/MonthSelector";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
-import { ReconciliationCard } from "@/components/dashboard/ReconciliationCard";
 import { CategorySpendCards } from "@/components/dashboard/CategorySpendCards";
 import { MonthlyReviewCard } from "@/components/dashboard/MonthlyReviewCard";
 import { AnnualTrendChart } from "@/components/dashboard/AnnualTrendChart";
@@ -65,15 +63,20 @@ export default function DashboardPage() {
   const loading =
     categoriesLoading || allCategoriesLoading || dataLoading || ccLoading || budgetsLoading || billsLoading;
 
-  const series = useMemo(
-    () => buildMonthlySeries(transactions, allCategories, seed, month),
-    [transactions, allCategories, seed, month]
-  );
-
-  const currentPoint: MonthPoint | null = useMemo(() => {
+  // Headline balance uses the *settled-cash* model (real bank position), so
+  // Opening/Closing tie out to the Savings tab and the bank. Credit spend only
+  // leaves when the card bill is paid — not at swipe.
+  const currentSavingsPoint = useMemo(() => {
     const key = monthKey(month);
-    return series.find((p) => p.key === key) ?? null;
-  }, [series, month]);
+    const savingsMonths = buildSavingsData({
+      transactions,
+      categories: allCategories,
+      ccPayments,
+      lockedPeriods: lockedSavings,
+      endMonth: month,
+    });
+    return savingsMonths.find((m) => m.key === key) ?? null;
+  }, [transactions, allCategories, ccPayments, lockedSavings, month]);
 
   const categoryCards = useMemo(
     () => buildCategorySpendCards(transactions, allCategories, month),
@@ -139,44 +142,6 @@ export default function DashboardPage() {
     return map;
   }, [people, transactions, ccPayments, openingBalances, month, allCategories, ccStatements]);
 
-  // Reconciliation: dashboard cash (accrual) + outstanding cards owed should
-  // equal the settled-cash Savings closing for the same month.
-  const reconciliation = useMemo(() => {
-    if (!currentPoint) return null;
-    const key = monthKey(month);
-
-    let cardsOwed = 0;
-    for (const p of people) {
-      const s = ccSeriesByPerson.get(p.id) ?? [];
-      const pt = s.find((x) => x.key === key);
-      if (pt) cardsOwed += pt.closing;
-    }
-
-    const savingsMonths = buildSavingsData({
-      transactions,
-      categories: allCategories,
-      ccPayments,
-      lockedPeriods: lockedSavings,
-      endMonth: month,
-    });
-    const savingsPoint = savingsMonths.find((m) => m.key === key) ?? null;
-
-    return {
-      cash: currentPoint.closing,
-      cardsOwed,
-      savingsClosing: savingsPoint?.closingBalance ?? null,
-    };
-  }, [
-    currentPoint,
-    month,
-    people,
-    ccSeriesByPerson,
-    transactions,
-    allCategories,
-    ccPayments,
-    lockedSavings,
-  ]);
-
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -212,18 +177,19 @@ export default function DashboardPage() {
       ) : view === "monthly" ? (
         <>
           <div className="mb-6">
-            <BalanceCard point={currentPoint} />
+            <BalanceCard
+              point={
+                currentSavingsPoint
+                  ? {
+                      opening: currentSavingsPoint.openingBalance,
+                      income: currentSavingsPoint.totalIncome,
+                      expense: currentSavingsPoint.totalExpense,
+                      closing: currentSavingsPoint.closingBalance,
+                    }
+                  : null
+              }
+            />
           </div>
-
-          {reconciliation && (
-            <div className="mb-6">
-              <ReconciliationCard
-                cash={reconciliation.cash}
-                cardsOwed={reconciliation.cardsOwed}
-                savingsClosing={reconciliation.savingsClosing}
-              />
-            </div>
-          )}
 
           <UpcomingBillsList bills={upcomingBills} categories={categories} />
 

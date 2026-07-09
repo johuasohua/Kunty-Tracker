@@ -1,15 +1,27 @@
 import { Card } from "@/components/ui/Card";
 import { formatMoney } from "@/lib/format";
-import type { MonthPoint } from "@/lib/aggregate";
 
-export function BalanceCard({ point }: { point: MonthPoint | null }) {
+/**
+ * Model-agnostic balance summary. Fed settled-cash figures (real bank
+ * position) so Opening/Closing tie out to the Savings tab and the bank:
+ * Expense here means cash that actually left the account (debit + offset +
+ * card bills paid), not accrual spend-at-swipe.
+ */
+export interface BalancePoint {
+  opening: number;
+  income: number;
+  expense: number;
+  closing: number;
+}
+
+export function BalanceCard({ point }: { point: BalancePoint | null }) {
   if (!point) return null;
 
   return (
     <Card className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-4">
       <Stat label="Opening" value={point.opening} />
-      <Stat label="Income" value={point.totalIncome} tone="green" />
-      <Stat label="Expense" value={point.totalExpense} tone="red" />
+      <Stat label="Income" value={point.income} tone="green" />
+      <Stat label="Cash out" value={point.expense} tone="red" />
       <Stat label="Closing" value={point.closing} emphasize />
     </Card>
   );
