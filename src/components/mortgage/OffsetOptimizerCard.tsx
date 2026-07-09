@@ -63,24 +63,24 @@ export function OffsetOptimizerCard({
           <Sparkles size={13} />
         </div>
         <h2 className="text-[14px] font-semibold text-ios-label">
-          Rak Optimizer
+          Offset Optimizer
         </h2>
       </div>
 
-      {/* Amount + anchor to current Rak balance */}
+      {/* Amount + anchor to current offset balance */}
       <div className="flex items-baseline justify-between">
         <span className="text-[12px] text-ios-label-secondary">
-          Move into Rak
+          Move into offset
         </span>
         <span className="text-[20px] font-bold text-ios-label">
           {formatMoney(extra)}
         </span>
       </div>
       <div className="mb-2 text-right text-[11px] text-ios-label-secondary">
-        Rak {formatMoney(base.currentRak)}{" "}
+        Offset {formatMoney(base.currentOffset)}{" "}
         <span className="text-ios-label-tertiary">→</span>{" "}
         <span className="font-semibold" style={{ color: OFFSET_TEAL }}>
-          {formatMoney(base.currentRak + extra)}
+          {formatMoney(base.currentOffset + extra)}
         </span>
       </div>
 
@@ -92,7 +92,7 @@ export function OffsetOptimizerCard({
         step={1000}
         value={extra}
         onChange={(e) => setExtra(Number(e.target.value))}
-        aria-label="Extra amount to move into Rak"
+        aria-label="Extra amount to move into offset"
         className="mb-2.5 w-full cursor-pointer"
         style={{ accentColor: OFFSET_TEAL }}
       />

@@ -3,10 +3,10 @@
 import { Trash2 } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
 import { formatMoney } from "@/lib/format";
-import { deleteRakPeriod } from "@/lib/queries/rak";
-import type { RakSeriesPoint } from "@/lib/aggregate";
+import { deleteOffsetPeriod } from "@/lib/queries/offset";
+import type { OffsetSeriesPoint } from "@/lib/aggregate";
 
-export function RakHistorySheet({
+export function OffsetHistorySheet({
   open,
   onClose,
   series,
@@ -14,7 +14,7 @@ export function RakHistorySheet({
 }: {
   open: boolean;
   onClose: () => void;
-  series: RakSeriesPoint[];
+  series: OffsetSeriesPoint[];
   onDeleted?: () => void;
 }) {
   // Newest first; show only locked (historical) rows
@@ -23,19 +23,19 @@ export function RakHistorySheet({
   async function handleDelete(id: string, month: string) {
     if (
       !window.confirm(
-        `Delete the ${month} Rak entry? This cannot be undone.`
+        `Delete the ${month} offset entry? This cannot be undone.`
       )
     )
       return;
-    await deleteRakPeriod(id);
+    await deleteOffsetPeriod(id);
     onDeleted?.();
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Rak History">
+    <Sheet open={open} onClose={onClose} title="Offset History">
       {rows.length === 0 ? (
         <p className="py-6 text-center text-[14px] text-ios-label-secondary">
-          No Rak activity recorded yet.
+          No offset activity recorded yet.
         </p>
       ) : (
         <div className="overflow-x-auto">

@@ -13,7 +13,8 @@ import type { Category } from "@/lib/types";
 const TREAT_AS_LABEL: Record<Category["treat_as"], string> = {
   expense: "Expense",
   income: "Income",
-  rak: "Rak",
+  offset: "Offsets expense",
+  transfer: "Transfer out",
 };
 
 export default function ManageCategoriesPage() {

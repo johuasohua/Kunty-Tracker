@@ -36,11 +36,11 @@ export interface MortgagePaymentInput {
   insurance_amount: number;
   hoi_charge: number;
   closing_principal: number;
-  rak_opening_balance?: number | null;
-  rak_closing_balance?: number | null;
+  offset_opening_balance?: number | null;
+  offset_closing_balance?: number | null;
   interest_saved?: number | null;
-  rak_transaction_amount?: number | null;
-  rak_note?: string | null;
+  offset_transaction_amount?: number | null;
+  offset_note?: string | null;
 }
 
 export async function createMortgagePayment(input: MortgagePaymentInput) {
@@ -120,11 +120,11 @@ export async function syncLedgerForCategoryTransaction(input: {
 
   // Mortgage payment → next period, amount as principal until split is edited.
   const opening = last?.closing_principal ?? 0;
-  const rakOpening = last?.rak_closing_balance ?? null;
+  const offsetOpening = last?.offset_closing_balance ?? null;
   const insuranceAmount = last?.insurance_amount ?? 0;
   const hoiAmount = last?.hoi_charge ?? 105;
   const totalPayment = input.amount + insuranceAmount + hoiAmount;
-  const rakClosing = rakOpening !== null ? rakOpening - totalPayment : null;
+  const offsetClosing = offsetOpening !== null ? offsetOpening - totalPayment : null;
 
   await createMortgagePayment({
     period_no: (last?.period_no ?? 0) + 1,
@@ -135,9 +135,9 @@ export async function syncLedgerForCategoryTransaction(input: {
     insurance_amount: insuranceAmount,
     hoi_charge: hoiAmount,
     closing_principal: opening - input.amount,
-    rak_opening_balance: rakOpening,
-    rak_closing_balance: rakClosing,
-    rak_note: "Auto-logged from transaction — edit P/I split",
+    offset_opening_balance: offsetOpening,
+    offset_closing_balance: offsetClosing,
+    offset_note: "Auto-logged from transaction — edit P/I split",
   });
 
   return "mortgage-period";

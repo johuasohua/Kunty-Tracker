@@ -136,14 +136,16 @@ export function CategoryEditSheet({
             options={[
               { label: "Expense", value: "expense" },
               { label: "Income", value: "income" },
-              { label: "Rak", value: "rak" },
+              { label: "Offsets expense", value: "offset" },
+              { label: "Transfer out", value: "transfer" },
             ]}
             value={treatAs}
             onChange={setTreatAs}
           />
           <p className="mt-1 text-[12px] text-ios-label-tertiary">
-            &ldquo;Rak&rdquo; (like Rak deposits) is money moved to your own account —
-            not card spend, but cash that leaves.
+            &ldquo;Offsets expense&rdquo; (like Refunds) subtracts from spending totals.
+            &ldquo;Transfer out&rdquo; (like Offset deposits) is money moved to your own
+            account — not card spend, but cash that leaves.
           </p>
         </div>
 

@@ -4,19 +4,19 @@ import { useState } from "react";
 import { ChevronRight, PiggyBank } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { formatMoney } from "@/lib/format";
-import type { RakSeriesPoint } from "@/lib/aggregate";
-import { RakHistorySheet } from "@/components/mortgage/RakHistorySheet";
+import type { OffsetSeriesPoint } from "@/lib/aggregate";
+import { OffsetHistorySheet } from "@/components/mortgage/OffsetHistorySheet";
 
-export function RakPanel({
+export function OffsetPanel({
   series,
   onLedgerChanged,
 }: {
-  series: RakSeriesPoint[];
+  series: OffsetSeriesPoint[];
   onLedgerChanged?: () => void;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Earliest period = where Rak started
+  // Earliest period = where offset started
   const firstPeriod = series[0] ?? null;
   // Latest period = current state (derived live for open months)
   const lastPeriod = series[series.length - 1] ?? null;
@@ -38,7 +38,7 @@ export function RakPanel({
           </div>
           <div className="flex-1">
             <div className="text-[15px] font-semibold text-ios-label">
-              Rak Account
+              Offset Account
             </div>
             <div className="text-[13px] text-ios-label-secondary">
               Tap for full history
@@ -59,7 +59,7 @@ export function RakPanel({
         </div>
       </Card>
 
-      <RakHistorySheet
+      <OffsetHistorySheet
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
         series={series}

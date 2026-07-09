@@ -6,13 +6,13 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useCategories } from "@/lib/queries/categories";
 import { useMortgagePayments } from "@/lib/queries/mortgage";
-import { useRakAccount } from "@/lib/queries/rak";
+import { useOffsetAccount } from "@/lib/queries/offset";
 import { useDashboardData } from "@/lib/queries/dashboard-data";
-import { buildRakSeries } from "@/lib/aggregate";
+import { buildOffsetSeries } from "@/lib/aggregate";
 import { MortgageBalanceChart } from "@/components/mortgage/MortgageBalanceChart";
 import { InterestSavedCard } from "@/components/mortgage/InterestSavedCard";
 import { PaymentBreakdownCard } from "@/components/mortgage/PaymentBreakdownCard";
-import { RakPanel } from "@/components/mortgage/RakPanel";
+import { OffsetPanel } from "@/components/mortgage/OffsetPanel";
 import { OffsetOptimizerCard } from "@/components/mortgage/OffsetOptimizerCard";
 import { PaymentHistoryTable } from "@/components/mortgage/PaymentHistoryTable";
 import { LogTransactionSheet } from "@/components/mortgage/LogTransactionSheet";
@@ -20,31 +20,31 @@ import { LogTransactionSheet } from "@/components/mortgage/LogTransactionSheet";
 export default function MortgagePage() {
   const { categories } = useCategories();
   const { payments, loading, refresh } = useMortgagePayments();
-  const { periods: lockedRakPeriods, refresh: refreshRak } = useRakAccount();
+  const { periods: lockedOffsetPeriods, refresh: refreshOffset } = useOffsetAccount();
   const { transactions, refresh: refreshTransactions } = useDashboardData();
   const [logOpen, setLogOpen] = useState(false);
 
   const lastPayment = payments[payments.length - 1] ?? null;
-  const rakCategoryId = categories.find((c) => c.name.toLowerCase() === "rak")?.id;
+  const offsetCategoryId = categories.find((c) => c.name.toLowerCase() === "offset")?.id;
 
-  // Locked ledger history + months derived live from Rak transactions and
+  // Locked ledger history + months derived live from Offset transactions and
   // mortgage payments — nothing derived is stored, so it can't drift.
-  const rakSeries = useMemo(
+  const offsetSeries = useMemo(
     () =>
-      buildRakSeries({
-        lockedPeriods: lockedRakPeriods,
+      buildOffsetSeries({
+        lockedPeriods: lockedOffsetPeriods,
         transactions,
-        rakCategoryId,
+        offsetCategoryId,
         mortgagePayments: payments,
         endMonth: new Date(),
       }),
-    [lockedRakPeriods, transactions, rakCategoryId, payments]
+    [lockedOffsetPeriods, transactions, offsetCategoryId, payments]
   );
 
   const handleTransactionSaved = () => {
-    // Refresh every source the Rak series derives from
+    // Refresh every source the offset series derives from
     refresh();
-    refreshRak();
+    refreshOffset();
     refreshTransactions();
   };
 
@@ -83,11 +83,11 @@ export default function MortgagePage() {
           </div>
 
           <div className="mb-6">
-            <RakPanel series={rakSeries} onLedgerChanged={refreshRak} />
+            <OffsetPanel series={offsetSeries} onLedgerChanged={refreshOffset} />
           </div>
 
           <div className="mb-6">
-            <MortgageBalanceChart payments={payments} rakSeries={rakSeries} />
+            <MortgageBalanceChart payments={payments} offsetSeries={offsetSeries} />
           </div>
 
           <div className="mb-6">
@@ -103,7 +103,7 @@ export default function MortgagePage() {
         onClose={() => setLogOpen(false)}
         onSaved={handleTransactionSaved}
         lastPayment={lastPayment}
-        rakCategoryId={rakCategoryId}
+        offsetCategoryId={offsetCategoryId}
       />
     </div>
   );

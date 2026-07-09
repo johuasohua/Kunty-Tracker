@@ -16,20 +16,20 @@ function todayISO() {
   ).padStart(2, "0")}`;
 }
 
-type TabType = "mortgage" | "rak";
+type TabType = "mortgage" | "offset";
 
 export function LogTransactionSheet({
   open,
   onClose,
   onSaved,
   lastPayment,
-  rakCategoryId,
+  offsetCategoryId,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
   lastPayment: MortgagePayment | null;
-  rakCategoryId: string | undefined;
+  offsetCategoryId: string | undefined;
 }) {
   const { activePerson } = useProfile();
   const [tab, setTab] = useState<TabType>("mortgage");
@@ -41,10 +41,10 @@ export function LogTransactionSheet({
   const [insurance, setInsurance] = useState("");
   const [interestSaved, setInterestSaved] = useState("");
 
-  // Rak deposit fields
-  const [rakDate, setRakDate] = useState(todayISO());
-  const [rakAmount, setRakAmount] = useState("");
-  const [rakNote, setRakNote] = useState("");
+  // Offset deposit fields
+  const [offsetDate, setOffsetDate] = useState(todayISO());
+  const [offsetAmount, setOffsetAmount] = useState("");
+  const [offsetNote, setOffsetNote] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -56,9 +56,9 @@ export function LogTransactionSheet({
     setInterest("");
     setInsurance(lastPayment ? String(lastPayment.insurance_amount) : "");
     setInterestSaved("");
-    setRakDate(todayISO());
-    setRakAmount("");
-    setRakNote("");
+    setOffsetDate(todayISO());
+    setOffsetAmount("");
+    setOffsetNote("");
     setError("");
   }, [open, lastPayment]);
 
@@ -77,10 +77,10 @@ export function LogTransactionSheet({
     setError("");
     try {
       const opening = lastPayment?.closing_principal ?? 0;
-      const rakOpening = lastPayment?.rak_closing_balance ?? null;
+      const offsetOpening = lastPayment?.offset_closing_balance ?? null;
       const hoiAmount = lastPayment?.hoi_charge ?? 105;
       const totalPayment = principalNum + interestNum + insuranceNum + hoiAmount;
-      const rakClosing = rakOpening !== null ? rakOpening - totalPayment : null;
+      const offsetClosing = offsetOpening !== null ? offsetOpening - totalPayment : null;
 
       await createMortgagePayment({
         period_no: (lastPayment?.period_no ?? 0) + 1,
@@ -91,11 +91,11 @@ export function LogTransactionSheet({
         insurance_amount: insuranceNum,
         hoi_charge: hoiAmount,
         closing_principal: opening - principalNum,
-        rak_opening_balance: rakOpening,
-        rak_closing_balance: rakClosing,
+        offset_opening_balance: offsetOpening,
+        offset_closing_balance: offsetClosing,
         interest_saved: interestSavedNum || null,
       });
-      // The Rak panel derives this month's deduction straight from the
+      // The offset panel derives this month's deduction straight from the
       // mortgage_payments row just created — no ledger mirroring needed.
       onSaved();
       onClose();
@@ -106,14 +106,14 @@ export function LogTransactionSheet({
     }
   }
 
-  async function handleSaveRak() {
-    if (!rakAmount) {
+  async function handleSaveOffset() {
+    if (!offsetAmount) {
       setError("Amount is required");
       return;
     }
 
-    if (!rakCategoryId) {
-      setError("Rak category not found");
+    if (!offsetCategoryId) {
+      setError("Offset category not found");
       return;
     }
 
@@ -122,7 +122,7 @@ export function LogTransactionSheet({
       return;
     }
 
-    const amount = parseFloat(rakAmount) || 0;
+    const amount = parseFloat(offsetAmount) || 0;
     if (amount <= 0) {
       setError("Amount must be greater than 0");
       return;
@@ -133,10 +133,10 @@ export function LogTransactionSheet({
     try {
       await createTransaction({
         type: "expense",
-        category_id: rakCategoryId,
+        category_id: offsetCategoryId,
         amount,
-        occurred_on: rakDate,
-        note: rakNote || null,
+        occurred_on: offsetDate,
+        note: offsetNote || null,
         payment_method: "debit",
         person_id: activePerson.id,
       });
@@ -160,7 +160,7 @@ export function LogTransactionSheet({
           }}
           options={[
             { value: "mortgage", label: "Mortgage Payment" },
-            { value: "rak", label: "Rak Deposit" },
+            { value: "offset", label: "Offset Deposit" },
           ]}
         />
 
@@ -227,16 +227,16 @@ export function LogTransactionSheet({
               <Field label="Deposit Date">
                 <input
                   type="date"
-                  value={rakDate}
-                  onChange={(e) => setRakDate(e.target.value)}
+                  value={offsetDate}
+                  onChange={(e) => setOffsetDate(e.target.value)}
                   className="w-full rounded-xl border border-ios-separator bg-ios-bg px-3.5 py-2.5 text-[15px] text-ios-label outline-none focus:border-ios-blue"
                 />
               </Field>
               <Field label="Amount">
                 <input
                   inputMode="decimal"
-                  value={rakAmount}
-                  onChange={(e) => setRakAmount(e.target.value)}
+                  value={offsetAmount}
+                  onChange={(e) => setOffsetAmount(e.target.value)}
                   className="w-full rounded-xl border border-ios-separator bg-ios-bg px-3.5 py-2.5 text-[15px] text-ios-label outline-none focus:border-ios-blue"
                 />
               </Field>
@@ -244,8 +244,8 @@ export function LogTransactionSheet({
 
             <Field label="Note (optional)">
               <input
-                value={rakNote}
-                onChange={(e) => setRakNote(e.target.value)}
+                value={offsetNote}
+                onChange={(e) => setOffsetNote(e.target.value)}
                 placeholder="e.g. transferred from current account"
                 className="w-full rounded-xl border border-ios-separator bg-ios-bg px-3.5 py-2.5 text-[15px] text-ios-label outline-none focus:border-ios-blue"
               />
@@ -256,7 +256,7 @@ export function LogTransactionSheet({
         {error && <p className="text-[13px] text-ios-red">{error}</p>}
 
         <Button
-          onClick={tab === "mortgage" ? handleSaveMortgage : handleSaveRak}
+          onClick={tab === "mortgage" ? handleSaveMortgage : handleSaveOffset}
           disabled={saving}
         >
           {saving ? "Saving…" : `Log ${tab === "mortgage" ? "Payment" : "Deposit"}`}
