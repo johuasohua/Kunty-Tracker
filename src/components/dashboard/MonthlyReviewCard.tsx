@@ -10,7 +10,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Card, GroupedSection } from "@/components/ui/Card";
-import { formatMoney } from "@/lib/format";
+import { Money } from "@/components/ui/Money";
 import type { MonthlyReview, ReviewItem } from "@/lib/aggregate";
 
 /**
@@ -175,15 +175,14 @@ function Stat({
   return (
     <div>
       <div className="text-[12px] text-ios-label-secondary">{label}</div>
-      <div
+      <Money
+        value={value}
         className={
           "font-semibold " +
           (emphasize ? "text-[17px] " : "text-[15px] ") +
           (tone === "green" ? "text-ios-green" : "text-ios-red")
         }
-      >
-        {formatMoney(value)}
-      </div>
+      />
     </div>
   );
 }

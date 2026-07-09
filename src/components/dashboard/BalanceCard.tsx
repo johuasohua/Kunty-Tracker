@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/Card";
-import { formatMoney } from "@/lib/format";
+import { Money } from "@/components/ui/Money";
 
 /**
  * Model-agnostic balance summary. Fed settled-cash figures (real bank
@@ -40,7 +40,8 @@ function Stat({
   return (
     <div>
       <div className="text-[12px] text-ios-label-secondary">{label}</div>
-      <div
+      <Money
+        value={value}
         className={
           "font-semibold " +
           (emphasize ? "text-[17px] " : "text-[15px] ") +
@@ -52,9 +53,7 @@ function Stat({
                 ? "text-ios-blue"
                 : "text-ios-label")
         }
-      >
-        {formatMoney(value)}
-      </div>
+      />
     </div>
   );
 }
