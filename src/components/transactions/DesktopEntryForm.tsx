@@ -117,7 +117,11 @@ export function DesktopEntryForm({ onSaved }: { onSaved: () => void }) {
           >
             <option value="">Select…</option>
             {categories
-              .filter((c) => c.name.toLowerCase() !== "mortgage")
+              .filter(
+                (c) =>
+                  c.name.toLowerCase() !== "mortgage" &&
+                  c.name.toLowerCase() !== "offset"
+              )
               .map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}

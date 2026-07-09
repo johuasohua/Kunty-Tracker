@@ -92,11 +92,17 @@ export function TransactionTableRow({
             onChange={(e) => setCategoryId(e.target.value)}
             className="w-full rounded-md border border-ios-separator bg-ios-bg-secondary px-2 py-1 text-[13px]"
           >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            {categories
+              .filter(
+                (c) =>
+                  c.name.toLowerCase() !== "mortgage" &&
+                  c.name.toLowerCase() !== "offset"
+              )
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
           </select>
         </td>
         <td className="px-3 py-2">
