@@ -193,6 +193,8 @@ export default function DashboardPage() {
 
           <UpcomingBillsList bills={upcomingBills} categories={categories} />
 
+          <MonthlyReviewCard review={monthlyReview} monthKey={monthKey(month)} />
+
           {people.length > 0 && (
             <div className="mb-6 grid gap-4 md:grid-cols-2">
               {people.map((p) => {
@@ -252,8 +254,6 @@ export default function DashboardPage() {
               </Card>
             </Link>
           )}
-
-          <MonthlyReviewCard review={monthlyReview} monthKey={monthKey(month)} />
         </>
       ) : (
         <>
