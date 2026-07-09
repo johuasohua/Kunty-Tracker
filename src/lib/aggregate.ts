@@ -46,14 +46,11 @@ function categoryTreatAsMap(categories: Category[]) {
 }
 
 /**
- * "offset" (contra-expense, e.g. Refunds) and "transfer" (money moved to an
- * own account, e.g. mortgage-offset deposits) behave identically in every
- * aggregate — neither is card spend, both leave settlement cash. They differ
- * only in list display sign (+ refund, − transfer), which the transaction
- * list components handle.
+ * Rak transactions (money moved to another own account, e.g. mortgage-offset
+ * deposits) — excluded from CC spend, counts as settlement cash-out.
  */
-function isOffsetLike(treatAs: Category["treat_as"] | undefined) {
-  return treatAs === "offset" || treatAs === "transfer";
+function isRak(treatAs: Category["treat_as"] | undefined) {
+  return treatAs === "rak";
 }
 
 /**
@@ -665,7 +662,7 @@ export function buildCcSeries(
   for (const t of personTransactions) {
     if (t.type !== "expense") continue;
     // Exclude offset/transfer transactions from CC calculations — they're cash out to a loan account, not CC spending
-    if (isOffsetLike(treatAsMap.get(t.category_id))) continue;
+    if (isRak(treatAsMap.get(t.category_id))) continue;
     const key = monthKey(new Date(t.occurred_on));
     const bucket = spendByMonth.get(key) ?? { credit: 0, debit: 0 };
     if (t.payment_method === "credit") bucket.credit += t.amount;
@@ -727,10 +724,10 @@ export function buildCcSeries(
 }
 
 // ---------------------------------------------------------------------------
-// Offset account — locked ledger history + months derived from transactions
+// Rak account — locked ledger history + months derived from transactions
 // ---------------------------------------------------------------------------
 
-export interface OffsetSeriesPoint {
+export interface RakSeriesPoint {
   id: string | null; // ledger row id for locked periods; null for derived months
   periodNo: number;
   periodMonth: string; // "YYYY-MM"
@@ -743,17 +740,16 @@ export interface OffsetSeriesPoint {
 }
 
 /**
- * Offset account running balance, mirroring the savings-tab pattern:
- * `offset_account_periods` rows are locked, reconciled history rendered
+ * Rak account running balance, mirroring the savings-tab pattern:
+ * `rak_account_periods` rows are locked, reconciled history rendered
  * verbatim; months after the last locked period are derived live from
- *   deposits   = Offset-category transactions that month (logged from either
- *                the Transactions tab or the Mortgage tab — both create the
- *                same transaction row), and
+ *   deposits   = Rak-category transactions that month (logged from the
+ *                Mortgage tab), and
  *   deduction  = that month's mortgage_payments total (P + I + insurance + HOI).
- * Nothing derived is stored, so editing/deleting/backdating an offset
+ * Nothing derived is stored, so editing/deleting/backdating a Rak
  * transaction is reflected automatically and can never drift.
  */
-export function buildOffsetSeries(input: {
+export function buildRakSeries(input: {
   lockedPeriods: {
     id: string;
     period_no: number;
@@ -765,13 +761,13 @@ export function buildOffsetSeries(input: {
     transaction_note: string | null;
   }[];
   transactions: LightTransaction[];
-  offsetCategoryId: string | null | undefined;
+  rakCategoryId: string | null | undefined;
   mortgagePayments: MortgagePayment[];
   endMonth: Date;
-}): OffsetSeriesPoint[] {
+}): RakSeriesPoint[] {
   const locked = [...input.lockedPeriods].sort((a, b) => a.period_no - b.period_no);
 
-  const series: OffsetSeriesPoint[] = locked.map((p) => ({
+  const series: RakSeriesPoint[] = locked.map((p) => ({
     id: p.id,
     periodNo: p.period_no,
     periodMonth: p.period_month,
@@ -783,11 +779,11 @@ export function buildOffsetSeries(input: {
     locked: true,
   }));
 
-  // Deposits per month: Offset-category expense transactions.
+  // Deposits per month: Rak-category expense transactions.
   const depositsByMonth = new Map<string, number>();
-  if (input.offsetCategoryId) {
+  if (input.rakCategoryId) {
     for (const t of input.transactions) {
-      if (t.category_id !== input.offsetCategoryId || t.type !== "expense") continue;
+      if (t.category_id !== input.rakCategoryId || t.type !== "expense") continue;
       const key = monthKey(new Date(t.occurred_on));
       depositsByMonth.set(key, (depositsByMonth.get(key) ?? 0) + t.amount);
     }
@@ -1115,7 +1111,7 @@ export function computeBudgetProgressForYear(
     if (t.type !== "expense") continue;
     const d = new Date(t.occurred_on);
     if (d.getFullYear() !== year) continue;
-    const sign = isOffsetLike(categoryTreatAs.get(t.category_id)) ? -1 : 1;
+    const sign = isRak(categoryTreatAs.get(t.category_id)) ? -1 : 1;
 
     const key = `${t.category_id}:${t.person_id}`;
     actualByKey.set(key, (actualByKey.get(key) ?? 0) + sign * t.amount);
@@ -1165,17 +1161,17 @@ export function computeBudgetProgressForYear(
 }
 
 // ---------------------------------------------------------------------------
-// Offset optimizer — "what if we parked more in the offset account?"
+// Rak optimizer — "what if we parked more in the Rak account?"
 // ---------------------------------------------------------------------------
 
 export interface OffsetOptimizerBase {
   currentPrincipal: number; // latest closing principal
-  currentOffset: number; // latest offset closing balance
-  effectiveDebt: number; // principal − offset, floored at 0
+  currentRak: number; // latest Rak closing balance
+  effectiveDebt: number; // principal − Rak, floored at 0
   monthlyRate: number; // derived per-month interest rate on effective debt
   annualRatePct: number; // monthlyRate × 12 × 100, for display
   monthlyPayment: number; // principal + interest portion of the latest payment
-  baselineMonthsRemaining: number | null; // months to payoff at current offset
+  baselineMonthsRemaining: number | null; // months to payoff at current Rak
 }
 
 export interface OffsetOptimization {
@@ -1212,10 +1208,10 @@ function monthsToPayoff(
 }
 
 /**
- * Derive the fixed inputs for the offset optimizer from mortgage history.
- * The effective interest rate is *derived*, not stored: an offset mortgage
- * charges interest on (principal − offset), so
- *   monthlyRate ≈ interest_amount ÷ (opening_principal − offset_opening_balance)
+ * Derive the fixed inputs for the Rak optimizer from mortgage history.
+ * The effective interest rate is *derived*, not stored: a Rak mortgage
+ * charges interest on (principal − Rak), so
+ *   monthlyRate ≈ interest_amount ÷ (opening_principal − rak_opening_balance)
  * read off the latest payment row. Returns null when there isn't enough data
  * to derive a sensible rate.
  */
@@ -1226,10 +1222,10 @@ export function computeOffsetOptimizerBase(
   if (!latest) return null;
 
   const currentPrincipal = latest.closing_principal;
-  const currentOffset = latest.offset_closing_balance ?? 0;
+  const currentRak = latest.rak_closing_balance ?? 0;
   if (currentPrincipal <= 0) return null;
 
-  const rateBase = latest.opening_principal - (latest.offset_opening_balance ?? 0);
+  const rateBase = latest.opening_principal - (latest.rak_opening_balance ?? 0);
   if (rateBase <= 0 || latest.interest_amount <= 0) return null;
 
   const monthlyRate = latest.interest_amount / rateBase;
@@ -1237,14 +1233,14 @@ export function computeOffsetOptimizerBase(
 
   return {
     currentPrincipal,
-    currentOffset,
-    effectiveDebt: Math.max(0, currentPrincipal - currentOffset),
+    currentRak,
+    effectiveDebt: Math.max(0, currentPrincipal - currentRak),
     monthlyRate,
     annualRatePct: monthlyRate * 12 * 100,
     monthlyPayment,
     baselineMonthsRemaining: monthsToPayoff(
       currentPrincipal,
-      currentOffset,
+      currentRak,
       monthlyRate,
       monthlyPayment
     ),
@@ -1269,7 +1265,7 @@ export function computeOffsetOptimization(
 
   const projectedMonthsRemaining = monthsToPayoff(
     base.currentPrincipal,
-    base.currentOffset + extra,
+    base.currentRak + extra,
     base.monthlyRate,
     base.monthlyPayment
   );
@@ -1390,7 +1386,7 @@ export function buildSavingsData({
         totalIncome += t.amount;
       } else if (t.type === "expense") {
         const treatAsValue = treatAs.get(t.category_id);
-        if (isOffsetLike(treatAsValue) || t.payment_method === "debit") {
+        if (isRak(treatAsValue) || t.payment_method === "debit") {
           // Both offset transfers and debit spending reduce settlement cash
           cashOut += t.amount;
         }
@@ -1650,7 +1646,7 @@ export function summarizeTransactions(
     const key = monthKey(new Date(t.occurred_on));
     if (!bucket.has(key)) continue; // outside the range
     let signed = t.amount;
-    if (t.type === "expense" && isOffsetLike(treatAs.get(t.category_id))) {
+    if (t.type === "expense" && isRak(treatAs.get(t.category_id))) {
       signed = -t.amount;
     }
     bucket.set(key, (bucket.get(key) ?? 0) + signed);

@@ -13,24 +13,24 @@ import {
 import { Card } from "@/components/ui/Card";
 import { formatMoney, formatAxisTick } from "@/lib/format";
 import type { MortgagePayment } from "@/lib/types";
-import type { OffsetSeriesPoint } from "@/lib/aggregate";
+import type { RakSeriesPoint } from "@/lib/aggregate";
 
 export function MortgageBalanceChart({
   payments,
-  offsetSeries,
+  rakSeries,
 }: {
   payments: MortgagePayment[];
-  offsetSeries?: OffsetSeriesPoint[];
+  rakSeries?: RakSeriesPoint[];
 }) {
-  const offsetByMonth = new Map(
-    (offsetSeries ?? []).map((p) => [p.periodMonth, p.closingBalance])
+  const rakByMonth = new Map(
+    (rakSeries ?? []).map((p) => [p.periodMonth, p.closingBalance])
   );
 
   const data = payments.map((p) => {
     const mortgageBalance = p.closing_principal;
     const paymentMonth = new Date(p.payment_date).toISOString().slice(0, 7); // YYYY-MM
-    const offsetBalance = offsetByMonth.get(paymentMonth) ?? 0;
-    const effectiveDebt = Math.max(0, mortgageBalance - offsetBalance);
+    const rakBalance = rakByMonth.get(paymentMonth) ?? 0;
+    const effectiveDebt = Math.max(0, mortgageBalance - rakBalance);
 
     return {
       name: new Date(p.payment_date).toLocaleDateString("en-GB", {
@@ -38,7 +38,7 @@ export function MortgageBalanceChart({
         year: "2-digit",
       }),
       mortgage: mortgageBalance,
-      offset: offsetBalance,
+      rak: rakBalance,
       effective: effectiveDebt,
     };
   });
@@ -46,7 +46,7 @@ export function MortgageBalanceChart({
   return (
     <Card className="p-4">
       <h2 className="mb-3 text-[15px] font-semibold text-ios-label">
-        Mortgage vs Offset Over Time
+        Mortgage vs Rak Over Time
       </h2>
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -85,11 +85,11 @@ export function MortgageBalanceChart({
             />
             <Line
               type="monotone"
-              dataKey="offset"
+              dataKey="rak"
               stroke="#30B0C7"
               strokeWidth={2}
               dot={false}
-              name="Offset Balance"
+              name="Rak Balance"
             />
             <Line
               type="monotone"

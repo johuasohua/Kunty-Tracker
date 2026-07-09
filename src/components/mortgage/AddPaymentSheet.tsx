@@ -49,8 +49,8 @@ export function AddPaymentSheet({
     // (defaults to 105 for the very first entry), not user-editable.
     setHoi(lastPayment ? String(lastPayment.hoi_charge) : "105");
     setOffsetOpening(
-      lastPayment?.offset_closing_balance != null
-        ? String(lastPayment.offset_closing_balance)
+      lastPayment?.rak_closing_balance != null
+        ? String(lastPayment.rak_closing_balance)
         : ""
     );
     setOffsetClosing("");
@@ -94,11 +94,11 @@ export function AddPaymentSheet({
         insurance_amount: insuranceNum,
         hoi_charge: hoiNum,
         closing_principal: closingPreview,
-        offset_opening_balance: offsetOpening ? parseFloat(offsetOpening) : null,
-        offset_closing_balance: offsetClosing ? parseFloat(offsetClosing) : autoOffsetClosing,
+        rak_opening_balance: offsetOpening ? parseFloat(offsetOpening) : null,
+        rak_closing_balance: offsetClosing ? parseFloat(offsetClosing) : autoOffsetClosing,
         interest_saved: interestSaved ? parseFloat(interestSaved) : null,
-        offset_transaction_amount: offsetTxNum || null,
-        offset_note: offsetNote || null,
+        rak_transaction_amount: offsetTxNum || null,
+        rak_note: offsetNote || null,
       });
       onSaved();
       onClose();

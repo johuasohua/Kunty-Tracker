@@ -123,7 +123,7 @@ export function EditTransactionSheet({
             value={categoryId}
             onChange={setCategoryId}
             filter="all"
-            exclude={["Mortgage"]}
+            exclude={["Mortgage", "Rak"]}
           />
         </div>
 

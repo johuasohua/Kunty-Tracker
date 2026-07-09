@@ -1,12 +1,9 @@
 export type PaymentMethod = "credit" | "debit";
 export type TransactionType = "income" | "expense";
-// "offset"   = contra-expense: money coming back (e.g. Refunds) — reduces
-//              expense totals and is displayed as "+" in transaction lists.
-// "transfer" = money moved out to another own account (e.g. mortgage-offset
-//              deposits) — behaves like "offset" in every aggregate (excluded
-//              from CC spend, counts as settlement cash-out) but is displayed
-//              as "−" because the cash genuinely leaves.
-export type CategoryTreatAs = "expense" | "income" | "offset" | "transfer";
+// "rak" = money moved out to another own account (e.g. Rak/mortgage-offset
+//         deposits) — excluded from CC spend, counts as settlement cash-out,
+//         displayed as "−" because the cash genuinely leaves.
+export type CategoryTreatAs = "expense" | "income" | "rak";
 export type EntrySource = "manual" | "voice" | "shortcut" | "import";
 
 export interface Person {
@@ -55,11 +52,11 @@ export interface MortgagePayment {
   insurance_amount: number;
   hoi_charge: number;
   closing_principal: number;
-  offset_opening_balance: number | null;
-  offset_closing_balance: number | null;
+  rak_opening_balance: number | null;
+  rak_closing_balance: number | null;
   interest_saved: number | null;
-  offset_transaction_amount: number | null;
-  offset_note: string | null;
+  rak_transaction_amount: number | null;
+  rak_note: string | null;
   created_at: string;
 }
 

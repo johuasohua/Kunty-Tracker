@@ -39,7 +39,7 @@ export function TransactionMobileList({
             {dayTransactions.map((t, i) => {
               const category = categories.find((c) => c.id === t.category_id);
               const person = people.find((p) => p.id === t.person_id);
-              const isExpense = t.type === "expense" && category?.treat_as !== "offset";
+              const isExpense = t.type === "expense" && category?.treat_as !== "rak";
               return (
                 <ListRow
                   key={t.id}
