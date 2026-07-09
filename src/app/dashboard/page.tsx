@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Sparkles, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -177,43 +176,50 @@ export default function DashboardPage() {
         />
       ) : view === "monthly" ? (
         <>
-          <div className="mb-6">
-            <BalanceCard
-              point={
-                currentSavingsPoint
-                  ? {
-                      opening: currentSavingsPoint.openingBalance,
-                      income: currentSavingsPoint.totalIncome,
-                      expense: currentSavingsPoint.totalExpense,
-                      closing: currentSavingsPoint.closingBalance,
-                    }
-                  : null
-              }
-            />
-          </div>
+          <BalanceCard
+            point={
+              currentSavingsPoint
+                ? {
+                    opening: currentSavingsPoint.openingBalance,
+                    income: currentSavingsPoint.totalIncome,
+                    expense: currentSavingsPoint.totalExpense,
+                    closing: currentSavingsPoint.closingBalance,
+                  }
+                : null
+            }
+          />
 
           <UpcomingBillsList bills={upcomingBills} categories={categories} />
 
           <MonthlyReviewCard review={monthlyReview} />
 
           {people.length > 0 && (
-            <div className="mb-6 grid gap-4 md:grid-cols-2">
-              {people.map((p) => {
-                const s = ccSeriesByPerson.get(p.id) ?? [];
-                const point = s.find((pt) => pt.key === monthKey(month)) ?? null;
-                return (
-                  <CcSummaryCard
-                    key={p.id}
-                    person={p}
-                    point={point}
-                    onMarkPaid={() => setMarkPaidPerson(p)}
-                  />
-                );
-              })}
+            <div className="mb-6">
+              <div className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-ios-label-secondary md:px-0">
+                CC Overview
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {people.map((p) => {
+                  const s = ccSeriesByPerson.get(p.id) ?? [];
+                  const point = s.find((pt) => pt.key === monthKey(month)) ?? null;
+                  return (
+                    <CcSummaryCard
+                      key={p.id}
+                      person={p}
+                      point={point}
+                      onMarkPaid={() => setMarkPaidPerson(p)}
+                    />
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          <MonthlyInsightsList items={monthlyReview.items} monthKey={monthKey(month)} />
+          <MonthlyInsightsList
+            items={monthlyReview.items}
+            monthKey={monthKey(month)}
+            cashNudge={cashNudge}
+          />
 
           {budgetEntries.length > 0 && (
             <div className="mb-6">
@@ -234,29 +240,6 @@ export default function DashboardPage() {
           )}
 
           <CategorySpendCards cards={categoryCards} monthKey={monthKey(month)} />
-
-          {cashNudge && (
-            <Link href="/savings" className="mb-6 block">
-              <Card className="flex items-center gap-3 p-4 active:bg-ios-fill-secondary">
-                <div
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: "#30B0C726", color: "#30B0C7" }}
-                >
-                  <Sparkles size={17} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[14px] font-semibold text-ios-label">
-                    {formatMoney(cashNudge.surplus)} ready to put to work
-                  </div>
-                  <div className="text-[13px] text-ios-label-secondary">
-                    Savings are above your {formatMoney(cashNudge.floor)} buffer —
-                    see how to deploy it.
-                  </div>
-                </div>
-                <ChevronRight size={18} className="shrink-0 text-ios-label-tertiary" />
-              </Card>
-            </Link>
-          )}
         </>
       ) : (
         <>

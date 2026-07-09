@@ -18,11 +18,16 @@ export function BalanceCard({ point }: { point: BalancePoint | null }) {
   if (!point) return null;
 
   return (
-    <Card className="grid grid-cols-3 gap-4 p-4">
-      <Stat label="Opening" value={point.opening} />
-      <Stat label="Income" value={point.income} tone="green" />
-      <Stat label="Closing" value={point.closing} emphasize />
-    </Card>
+    <div className="mb-6">
+      <div className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-ios-label-secondary md:px-0">
+        Combined Overview
+      </div>
+      <Card className="grid grid-cols-3 gap-4 p-4">
+        <Stat label="Opening" value={point.opening} />
+        <Stat label="Income" value={point.income} tone="green" />
+        <Stat label="Closing" value={point.closing} emphasize />
+      </Card>
+    </div>
   );
 }
 

@@ -1,27 +1,33 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
   Info,
   ChevronRight,
+  Sparkles,
 } from "lucide-react";
 import { Card, GroupedSection } from "@/components/ui/Card";
-import type { ReviewItem } from "@/lib/aggregate";
+import { formatMoney } from "@/lib/format";
+import type { CashDeployment, ReviewItem } from "@/lib/aggregate";
 
 /**
  * Plain-language list of anomalies, spikes and budget variance for the
  * selected month, each with a simple recommendation and (where relevant) a
- * tap-through to the underlying transactions.
+ * tap-through to the underlying transactions. The cash-deployment nudge
+ * (savings above the buffer) renders as part of this same section.
  */
 export function MonthlyInsightsList({
   items,
   monthKey,
+  cashNudge,
 }: {
   items: ReviewItem[];
   monthKey: string;
+  cashNudge?: CashDeployment | null;
 }) {
   const router = useRouter();
   const [from, to] = monthRangeFromKey(monthKey);
@@ -38,22 +44,47 @@ export function MonthlyInsightsList({
       </div>
 
       {items.length === 0 ? (
-        <Card className="p-4">
+        <Card className="mb-3 p-4">
           <p className="text-[14px] text-ios-label-secondary">
             Nothing notable this month — no spikes, anomalies, or budget overruns.
           </p>
         </Card>
       ) : (
-        <GroupedSection>
-          {items.map((item, i) => (
-            <ReviewRow
-              key={item.id}
-              item={item}
-              last={i === items.length - 1}
-              onClick={() => goToCategory(item.categoryId)}
-            />
-          ))}
-        </GroupedSection>
+        <div className="mb-3">
+          <GroupedSection>
+            {items.map((item, i) => (
+              <ReviewRow
+                key={item.id}
+                item={item}
+                last={i === items.length - 1}
+                onClick={() => goToCategory(item.categoryId)}
+              />
+            ))}
+          </GroupedSection>
+        </div>
+      )}
+
+      {cashNudge && (
+        <Link href="/savings" className="block">
+          <Card className="flex items-center gap-3 p-4 active:bg-ios-fill-secondary">
+            <div
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+              style={{ backgroundColor: "#30B0C726", color: "#30B0C7" }}
+            >
+              <Sparkles size={17} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14px] font-semibold text-ios-label">
+                {formatMoney(cashNudge.surplus)} ready to put to work
+              </div>
+              <div className="text-[13px] text-ios-label-secondary">
+                Savings are above your {formatMoney(cashNudge.floor)} buffer —
+                see how to deploy it.
+              </div>
+            </div>
+            <ChevronRight size={18} className="shrink-0 text-ios-label-tertiary" />
+          </Card>
+        </Link>
       )}
     </div>
   );
