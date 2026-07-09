@@ -28,6 +28,7 @@ import { MonthSelector } from "@/components/dashboard/MonthSelector";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
 import { CategorySpendCards } from "@/components/dashboard/CategorySpendCards";
 import { MonthlyReviewCard } from "@/components/dashboard/MonthlyReviewCard";
+import { MonthlyInsightsList } from "@/components/dashboard/MonthlyInsightsList";
 import { AnnualTrendChart } from "@/components/dashboard/AnnualTrendChart";
 import { AnnualCategoryList } from "@/components/dashboard/AnnualCategoryList";
 import { useCcData } from "@/lib/queries/cc";
@@ -193,7 +194,7 @@ export default function DashboardPage() {
 
           <UpcomingBillsList bills={upcomingBills} categories={categories} />
 
-          <MonthlyReviewCard review={monthlyReview} monthKey={monthKey(month)} />
+          <MonthlyReviewCard review={monthlyReview} />
 
           {people.length > 0 && (
             <div className="mb-6 grid gap-4 md:grid-cols-2">
@@ -211,6 +212,8 @@ export default function DashboardPage() {
               })}
             </div>
           )}
+
+          <MonthlyInsightsList items={monthlyReview.items} monthKey={monthKey(month)} />
 
           {budgetEntries.length > 0 && (
             <div className="mb-6">
