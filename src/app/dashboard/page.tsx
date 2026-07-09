@@ -21,7 +21,7 @@ import {
   computeBudgetProgressForYear,
   computeUpcomingBills,
 } from "@/lib/aggregate";
-import { monthKey, formatMoney } from "@/lib/format";
+import { monthKey, formatMoney, monthLabel } from "@/lib/format";
 import { SpeakTransactionButton } from "@/components/voice/SpeakTransactionButton";
 import { MonthSelector } from "@/components/dashboard/MonthSelector";
 import { BalanceCard } from "@/components/dashboard/BalanceCard";
@@ -115,6 +115,26 @@ export default function DashboardPage() {
 
   const yearIncome = yearSeries.reduce((sum, p) => sum + p.totalIncome, 0);
   const yearExpense = yearSeries.reduce((sum, p) => sum + p.totalExpense, 0);
+
+  // Annual totals only reflect months with real transaction history, not a
+  // full Jan–Dec calendar year. Surface the true starting point so "Total
+  // Income/Expense" don't read as if they cover the whole year.
+  const earliestActivityMonth = useMemo(() => {
+    const inYear = transactions.filter(
+      (t) => new Date(t.occurred_on).getFullYear() === year
+    );
+    if (inYear.length === 0) return null;
+    const earliest = inYear.reduce(
+      (min, t) => (t.occurred_on < min ? t.occurred_on : min),
+      inYear[0].occurred_on
+    );
+    return new Date(earliest);
+  }, [transactions, year]);
+
+  const partialYearLabel =
+    earliestActivityMonth && earliestActivityMonth.getMonth() !== 0
+      ? `${monthLabel(earliestActivityMonth)} onwards`
+      : null;
 
   const budgetEntries = useMemo(
     () => computeBudgetProgress(budgets, categories, transactions, people, month),
@@ -251,6 +271,11 @@ export default function DashboardPage() {
               <div className="text-[19px] font-semibold text-ios-green">
                 {formatMoney(yearIncome)}
               </div>
+              {partialYearLabel && (
+                <div className="mt-0.5 text-[11px] text-ios-label-tertiary">
+                  {partialYearLabel}
+                </div>
+              )}
             </Card>
             <Card className="p-4">
               <div className="text-[12px] text-ios-label-secondary">
@@ -259,6 +284,11 @@ export default function DashboardPage() {
               <div className="text-[19px] font-semibold text-ios-red">
                 {formatMoney(yearExpense)}
               </div>
+              {partialYearLabel && (
+                <div className="mt-0.5 text-[11px] text-ios-label-tertiary">
+                  {partialYearLabel}
+                </div>
+              )}
             </Card>
             <Card className="col-span-2 p-4 sm:col-span-1">
               <div className="text-[12px] text-ios-label-secondary">Net</div>
