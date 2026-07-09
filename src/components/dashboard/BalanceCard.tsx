@@ -42,7 +42,8 @@ function Stat({
       <div className="text-[12px] text-ios-label-secondary">{label}</div>
       <div
         className={
-          "text-[17px] font-semibold " +
+          "font-semibold " +
+          (emphasize ? "text-[17px] " : "text-[15px] ") +
           (tone === "green"
             ? "text-ios-green"
             : tone === "red"

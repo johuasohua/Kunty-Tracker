@@ -1,7 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { ChevronLeft, ChevronRight, ArrowLeftRight } from "lucide-react";
 import { monthLabel } from "@/lib/format";
 
 export function MonthSelector({
@@ -49,14 +48,14 @@ export function MonthSelector({
         </button>
       </div>
 
-      <SegmentedControl
-        options={[
-          { label: "Monthly", value: "monthly" },
-          { label: "Annual", value: "annual" },
-        ]}
-        value={view}
-        onChange={onViewChange}
-      />
+      <button
+        onClick={() => onViewChange(view === "monthly" ? "annual" : "monthly")}
+        className="flex items-center gap-1.5 rounded-full bg-ios-fill px-3 py-1.5 text-[13px] font-medium text-ios-label active:bg-ios-fill-secondary"
+        aria-label={`Switch to ${view === "monthly" ? "annual" : "monthly"} view`}
+      >
+        <ArrowLeftRight size={13} className="text-ios-label-secondary" />
+        {view === "monthly" ? "Monthly" : "Annual"}
+      </button>
     </div>
   );
 }
