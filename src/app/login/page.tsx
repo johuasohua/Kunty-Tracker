@@ -11,6 +11,10 @@ export default function LoginPage() {
   );
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [codeError, setCodeError] = useState("");
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("sending");
@@ -33,6 +37,29 @@ export default function LoginPage() {
     }
   }
 
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setVerifying(true);
+    setCodeError("");
+
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: code.trim(),
+        type: "email",
+      });
+      if (error) throw error;
+      // AppShell picks up the new session via onAuthStateChange and redirects.
+    } catch (err) {
+      setCodeError(
+        err instanceof Error ? err.message : "Invalid or expired code"
+      );
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-ios-bg px-6">
       <div className="w-full max-w-sm">
@@ -50,14 +77,55 @@ export default function LoginPage() {
         </div>
 
         {status === "sent" ? (
-          <div className="rounded-2xl bg-ios-bg-secondary p-5 text-center">
-            <p className="text-[15px] font-medium text-ios-label">
-              Check your inbox
-            </p>
-            <p className="mt-1 text-[13px] text-ios-label-secondary">
-              We sent a sign-in link to {email}. Open it on this device to
-              continue.
-            </p>
+          <div className="flex flex-col gap-4">
+            <div className="rounded-2xl bg-ios-bg-secondary p-5 text-center">
+              <p className="text-[15px] font-medium text-ios-label">
+                Check your inbox
+              </p>
+              <p className="mt-1 text-[13px] text-ios-label-secondary">
+                We sent a code and a link to {email}.
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyCode} className="flex flex-col gap-3">
+              <div>
+                <label className="mb-1 block text-[13px] font-medium text-ios-label-secondary">
+                  Enter the 6-digit code
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                  placeholder="123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="w-full rounded-xl border border-ios-separator bg-ios-bg-secondary px-4 py-3 text-center text-[20px] tracking-[0.3em] text-ios-label outline-none focus:border-ios-blue"
+                />
+              </div>
+              {codeError && (
+                <p className="text-[13px] text-ios-red">{codeError}</p>
+              )}
+              <Button type="submit" disabled={verifying || !code.trim()}>
+                {verifying ? "Verifying…" : "Verify code"}
+              </Button>
+              <p className="text-center text-[12px] text-ios-label-tertiary">
+                On your Home Screen app? Use the code above instead of the
+                email link — links always open in Safari, not the installed
+                app.
+              </p>
+            </form>
+
+            <button
+              onClick={() => {
+                setStatus("idle");
+                setCode("");
+                setCodeError("");
+              }}
+              className="text-center text-[13px] font-medium text-ios-blue"
+            >
+              Use a different email
+            </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
