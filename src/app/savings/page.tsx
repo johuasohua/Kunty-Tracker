@@ -68,6 +68,24 @@ function SavingsPageContent() {
         </div>
       )}
 
+      {/* Add Goal prompt */}
+      <div className="mb-6 rounded-2xl bg-ios-bg-secondary p-4">
+        <div className="mb-3 text-[15px] font-medium text-ios-label">
+          {goals.length === 0 ? "Ready to fund some goals?" : "Add another goal"}
+        </div>
+        {goals.length === 0 && (
+          <div className="mb-3 text-[13px] text-ios-label-secondary">
+            Create goals to allocate your surplus savings. Once you accumulate more than 200k, progress will start tracking automatically.
+          </div>
+        )}
+        <button
+          onClick={() => setCreateGoalOpen(true)}
+          className="w-full rounded-xl bg-ios-blue px-4 py-2.5 text-center text-[15px] font-medium text-white active:opacity-70"
+        >
+          Create a Goal
+        </button>
+      </div>
+
       {/* Goals Section */}
       {goals.length > 0 && (
         <div className="mb-6">
@@ -128,24 +146,6 @@ function SavingsPageContent() {
           </div>
         </div>
       )}
-
-      {/* Add Goal prompt */}
-      <div className="mb-6 rounded-2xl bg-ios-bg-secondary p-4">
-        <div className="mb-3 text-[15px] font-medium text-ios-label">
-          {goals.length === 0 ? "Ready to fund some goals?" : "Add another goal"}
-        </div>
-        {goals.length === 0 && (
-          <div className="mb-3 text-[13px] text-ios-label-secondary">
-            Create goals to allocate your surplus savings. Once you accumulate more than 200k, progress will start tracking automatically.
-          </div>
-        )}
-        <button
-          onClick={() => setCreateGoalOpen(true)}
-          className="w-full rounded-xl bg-ios-blue px-4 py-2.5 text-center text-[15px] font-medium text-white active:opacity-70"
-        >
-          Create a Goal
-        </button>
-      </div>
 
       {/* Summary Cards */}
       <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
