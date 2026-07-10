@@ -5,58 +5,65 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 
 export default function LoginPage() {
+  const [mode, setMode] = useState<"password" | "link">("password");
+
+  // Password sign-in — completes entirely in the current context (no email
+  // round-trip), so it's the reliable path for the installed Home Screen
+  // app, where iOS gives the standalone app its own storage separate from
+  // Safari and email links always open in Safari, never the installed app.
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
+  const [password, setPassword] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
+  async function handlePasswordSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    setSigningIn(true);
+    setPasswordError("");
+    try {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      // AppShell picks up the new session via onAuthStateChange and redirects.
+    } catch (err) {
+      setPasswordError(
+        err instanceof Error ? err.message : "Invalid email or password"
+      );
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  // Email-link sign-in — works fine in a normal Safari tab, but the link
+  // always opens in Safari even when requested from the installed Home
+  // Screen app, so it can't complete a login started there.
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkStatus, setLinkStatus] = useState<"idle" | "sending" | "sent" | "error">(
     "idle"
   );
-  const [errorMessage, setErrorMessage] = useState("");
+  const [linkError, setLinkError] = useState("");
 
-  const [code, setCode] = useState("");
-  const [verifying, setVerifying] = useState(false);
-  const [codeError, setCodeError] = useState("");
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSendLink(e: React.FormEvent) {
     e.preventDefault();
-    setStatus("sending");
-    setErrorMessage("");
-
+    setLinkStatus("sending");
+    setLinkError("");
     try {
       const supabase = getSupabaseClient();
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: linkEmail,
         options: {
           emailRedirectTo:
             typeof window !== "undefined" ? window.location.origin : undefined,
         },
       });
       if (error) throw error;
-      setStatus("sent");
+      setLinkStatus("sent");
     } catch (err) {
-      setStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Something went wrong");
-    }
-  }
-
-  async function handleVerifyCode(e: React.FormEvent) {
-    e.preventDefault();
-    setVerifying(true);
-    setCodeError("");
-
-    try {
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: code.trim(),
-        type: "email",
-      });
-      if (error) throw error;
-      // AppShell picks up the new session via onAuthStateChange and redirects.
-    } catch (err) {
-      setCodeError(
-        err instanceof Error ? err.message : "Invalid or expired code"
-      );
-    } finally {
-      setVerifying(false);
+      setLinkStatus("error");
+      setLinkError(err instanceof Error ? err.message : "Something went wrong");
     }
   }
 
@@ -67,68 +74,14 @@ export default function LoginPage() {
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ios-blue text-[28px] font-bold text-white">
             K
           </div>
-          <h1 className="text-[22px] font-bold text-ios-label">
-            Kunty
-          </h1>
+          <h1 className="text-[22px] font-bold text-ios-label">Kunty</h1>
           <p className="text-center text-[14px] text-ios-label-secondary">
-            Josh &amp; Kiki&apos;s household finance tracker. Sign in with the
-            email you use for this household.
+            Josh &amp; Kiki&apos;s household finance tracker.
           </p>
         </div>
 
-        {status === "sent" ? (
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl bg-ios-bg-secondary p-5 text-center">
-              <p className="text-[15px] font-medium text-ios-label">
-                Check your inbox
-              </p>
-              <p className="mt-1 text-[13px] text-ios-label-secondary">
-                We sent a code and a link to {email}.
-              </p>
-            </div>
-
-            <form onSubmit={handleVerifyCode} className="flex flex-col gap-3">
-              <div>
-                <label className="mb-1 block text-[13px] font-medium text-ios-label-secondary">
-                  Enter the 6-digit code
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  required
-                  placeholder="123456"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  className="w-full rounded-xl border border-ios-separator bg-ios-bg-secondary px-4 py-3 text-center text-[20px] tracking-[0.3em] text-ios-label outline-none focus:border-ios-blue"
-                />
-              </div>
-              {codeError && (
-                <p className="text-[13px] text-ios-red">{codeError}</p>
-              )}
-              <Button type="submit" disabled={verifying || !code.trim()}>
-                {verifying ? "Verifying…" : "Verify code"}
-              </Button>
-              <p className="text-center text-[12px] text-ios-label-tertiary">
-                On your Home Screen app? Use the code above instead of the
-                email link — links always open in Safari, not the installed
-                app.
-              </p>
-            </form>
-
-            <button
-              onClick={() => {
-                setStatus("idle");
-                setCode("");
-                setCodeError("");
-              }}
-              className="text-center text-[13px] font-medium text-ios-blue"
-            >
-              Use a different email
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {mode === "password" ? (
+          <form onSubmit={handlePasswordSignIn} className="flex flex-col gap-3">
             <input
               type="email"
               required
@@ -137,13 +90,68 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               className="rounded-xl border border-ios-separator bg-ios-bg-secondary px-4 py-3 text-[15px] text-ios-label outline-none focus:border-ios-blue"
             />
-            {status === "error" && (
-              <p className="text-[13px] text-ios-red">{errorMessage}</p>
+            <input
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="rounded-xl border border-ios-separator bg-ios-bg-secondary px-4 py-3 text-[15px] text-ios-label outline-none focus:border-ios-blue"
+            />
+            {passwordError && (
+              <p className="text-[13px] text-ios-red">{passwordError}</p>
             )}
-            <Button type="submit" disabled={status === "sending"}>
-              {status === "sending" ? "Sending link…" : "Send sign-in link"}
+            <Button type="submit" disabled={signingIn}>
+              {signingIn ? "Signing in…" : "Sign In"}
             </Button>
+            <button
+              type="button"
+              onClick={() => setMode("link")}
+              className="text-center text-[13px] font-medium text-ios-blue"
+            >
+              Use an email link instead
+            </button>
           </form>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {linkStatus === "sent" ? (
+              <div className="rounded-2xl bg-ios-bg-secondary p-5 text-center">
+                <p className="text-[15px] font-medium text-ios-label">
+                  Check your inbox
+                </p>
+                <p className="mt-1 text-[13px] text-ios-label-secondary">
+                  We sent a sign-in link to {linkEmail}. Open it in Safari to
+                  continue — email links can&apos;t open the installed
+                  Home Screen app directly.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSendLink} className="flex flex-col gap-3">
+                <input
+                  type="email"
+                  required
+                  placeholder="you@example.com"
+                  value={linkEmail}
+                  onChange={(e) => setLinkEmail(e.target.value)}
+                  className="rounded-xl border border-ios-separator bg-ios-bg-secondary px-4 py-3 text-[15px] text-ios-label outline-none focus:border-ios-blue"
+                />
+                {linkStatus === "error" && (
+                  <p className="text-[13px] text-ios-red">{linkError}</p>
+                )}
+                <Button type="submit" disabled={linkStatus === "sending"}>
+                  {linkStatus === "sending" ? "Sending link…" : "Send sign-in link"}
+                </Button>
+              </form>
+            )}
+            <button
+              type="button"
+              onClick={() => setMode("password")}
+              className="text-center text-[13px] font-medium text-ios-blue"
+            >
+              Use password instead
+            </button>
+          </div>
         )}
       </div>
     </div>
