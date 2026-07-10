@@ -24,14 +24,16 @@ export function LogTransactionSheet({
   onSaved,
   lastPayment,
   offsetCategoryId,
+  categoriesLoading = false,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
   lastPayment: MortgagePayment | null;
   offsetCategoryId: string | undefined;
+  categoriesLoading?: boolean;
 }) {
-  const { activePerson } = useProfile();
+  const { activePerson, loading: profileLoading } = useProfile();
   const [tab, setTab] = useState<TabType>("mortgage");
 
   // Mortgage payment fields
@@ -112,8 +114,18 @@ export function LogTransactionSheet({
       return;
     }
 
+    if (categoriesLoading) {
+      setError("Still loading categories — try again in a moment");
+      return;
+    }
+
     if (!offsetCategoryId) {
       setError("Offset category not found");
+      return;
+    }
+
+    if (profileLoading) {
+      setError("Still loading your profile — try again in a moment");
       return;
     }
 
@@ -257,9 +269,13 @@ export function LogTransactionSheet({
 
         <Button
           onClick={tab === "mortgage" ? handleSaveMortgage : handleSaveOffset}
-          disabled={saving}
+          disabled={saving || profileLoading || categoriesLoading}
         >
-          {saving ? "Saving…" : `Log ${tab === "mortgage" ? "Payment" : "Deposit"}`}
+          {saving
+            ? "Saving…"
+            : profileLoading || categoriesLoading
+              ? "Loading…"
+              : `Log ${tab === "mortgage" ? "Payment" : "Deposit"}`}
         </Button>
       </div>
     </Sheet>

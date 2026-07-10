@@ -20,7 +20,7 @@ import { LogTransactionSheet } from "@/components/mortgage/LogTransactionSheet";
 
 export default function MortgagePage() {
   const searchParams = useSearchParams();
-  const { categories } = useCategories();
+  const { categories, loading: categoriesLoading } = useCategories();
   const { payments, loading, refresh } = useMortgagePayments();
   const { periods: lockedOffsetPeriods, refresh: refreshOffset } = useOffsetAccount();
   const { transactions, refresh: refreshTransactions } = useDashboardData();
@@ -115,6 +115,7 @@ export default function MortgagePage() {
         onSaved={handleTransactionSaved}
         lastPayment={lastPayment}
         offsetCategoryId={offsetCategoryId}
+        categoriesLoading={categoriesLoading}
       />
     </div>
   );
