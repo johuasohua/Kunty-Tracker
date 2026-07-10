@@ -78,7 +78,7 @@ export function useTransactions(filters: TransactionFilters) {
 
 export interface TransactionInput {
   occurred_on: string;
-  amount: number;
+  amount: number; // always AED
   category_id: string;
   person_id: string;
   payment_method: PaymentMethod;
@@ -87,6 +87,9 @@ export interface TransactionInput {
   source?: EntrySource;
   raw_capture_text?: string | null;
   created_by_person_id?: string | null;
+  original_amount?: number | null;
+  original_currency?: string | null;
+  exchange_rate?: number | null;
 }
 
 export async function createTransaction(input: TransactionInput) {

@@ -54,8 +54,10 @@ export function TransactionMobileList({
                   }
                   label={category?.name ?? "Uncategorized"}
                   subtitle={`${person?.name ?? "—"} · ${t.payment_method}${
-                    t.note ? ` · ${t.note}` : ""
-                  }`}
+                    t.original_currency
+                      ? ` · ${t.original_amount} ${t.original_currency}`
+                      : ""
+                  }${t.note ? ` · ${t.note}` : ""}`}
                   value={
                     <span className={isExpense ? "" : "text-ios-green"}>
                       {isExpense ? "-" : "+"}

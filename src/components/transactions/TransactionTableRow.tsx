@@ -195,6 +195,11 @@ export function TransactionTableRow({
       >
         {sign < 0 ? "-" : "+"}
         {formatMoney(transaction.amount)}
+        {transaction.original_currency && (
+          <div className="text-[11px] font-normal text-ios-label-tertiary">
+            {transaction.original_amount} {transaction.original_currency}
+          </div>
+        )}
       </td>
       <td className="px-3 py-2">
         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100">

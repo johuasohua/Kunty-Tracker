@@ -32,7 +32,7 @@ export interface Category {
 export interface Transaction {
   id: string;
   occurred_on: string;
-  amount: number;
+  amount: number; // always AED — see original_amount/original_currency for foreign-currency entries
   category_id: string;
   person_id: string;
   payment_method: PaymentMethod;
@@ -41,6 +41,9 @@ export interface Transaction {
   source: EntrySource;
   raw_capture_text: string | null;
   created_by_person_id: string | null;
+  original_amount: number | null;
+  original_currency: string | null;
+  exchange_rate: number | null;
   created_at: string;
   updated_at: string;
 }
