@@ -113,3 +113,15 @@ export interface CcStatement {
   note: string | null;
   created_at: string;
 }
+
+export interface Goal {
+  id: string;
+  name: string;
+  target_amount: number;
+  priority_order: number;
+  target_date: string | null;
+  reached_at: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}

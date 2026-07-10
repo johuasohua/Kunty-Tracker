@@ -1,12 +1,14 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useSavingsData } from "@/lib/queries/savings";
 import { useMortgagePayments } from "@/lib/queries/mortgage";
-import { computeCashDeployment, computeOffsetOptimizerBase } from "@/lib/aggregate";
+import { useGoals } from "@/lib/queries/goals";
+import { computeCashDeployment, computeOffsetOptimizerBase, computeGoalsAvailableCash } from "@/lib/aggregate";
 import { CashDeploymentCard } from "@/components/savings/CashDeploymentCard";
+import { CreateGoalSheet } from "@/components/savings/CreateGoalSheet";
 import { formatMoney } from "@/lib/format";
 
 export default function SavingsPage() {
@@ -20,8 +22,10 @@ export default function SavingsPage() {
 function SavingsPageContent() {
   const { savingsMonths, loading } = useSavingsData();
   const { payments, loading: mortgageLoading } = useMortgagePayments();
+  const { goals, loading: goalsLoading, refresh: refreshGoals } = useGoals();
+  const [createGoalOpen, setCreateGoalOpen] = useState(false);
 
-  if (loading || mortgageLoading) {
+  if (loading || mortgageLoading || goalsLoading) {
     return (
       <div className="flex justify-center py-14">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-ios-blue border-t-transparent" />
@@ -51,6 +55,7 @@ function SavingsPageContent() {
     savingsMonths,
     offsetBase: computeOffsetOptimizerBase(payments),
   });
+  const goalsAvailable = computeGoalsAvailableCash(savingsMonths);
 
   return (
     <div className="px-4 md:px-0">
@@ -59,6 +64,75 @@ function SavingsPageContent() {
       {deployPlan && (
         <div className="mb-6">
           <CashDeploymentCard plan={deployPlan} />
+        </div>
+      )}
+
+      {/* Goals Section */}
+      {goalsAvailable > 0 && goals.length > 0 && (
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[17px] font-semibold text-ios-label">Goals</h2>
+            <button
+              onClick={() => setCreateGoalOpen(true)}
+              className="text-[15px] font-medium text-ios-blue active:opacity-70"
+            >
+              Add
+            </button>
+          </div>
+          <div className="space-y-3">
+            {goals.map((goal) => (
+              <div
+                key={goal.id}
+                className="rounded-2xl bg-ios-bg-secondary p-4"
+              >
+                <div className="mb-2 flex items-baseline justify-between">
+                  <div className="text-[15px] font-medium text-ios-label">
+                    {goal.name}
+                  </div>
+                  <div className="text-[13px] font-medium text-ios-label-secondary">
+                    {formatMoney(goal.target_amount)}
+                  </div>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-ios-fill">
+                  <div
+                    className="h-full bg-ios-green transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, (goalsAvailable / goal.target_amount) * 100)}%`,
+                    }}
+                  />
+                </div>
+                <div className="mt-2 text-[12px] text-ios-label-tertiary">
+                  {formatMoney(Math.min(goalsAvailable, goal.target_amount))} of {formatMoney(goal.target_amount)}
+                  {goal.target_date && (
+                    <span className="ml-2">
+                      • Target:{" "}
+                      {new Date(goal.target_date).toLocaleDateString("en-US", {
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {goals.length === 0 && goalsAvailable > 0 && (
+        <div className="mb-6 rounded-2xl bg-ios-bg-secondary p-4">
+          <div className="mb-3 text-[15px] font-medium text-ios-label">
+            Ready to fund some goals?
+          </div>
+          <div className="mb-3 text-[13px] text-ios-label-secondary">
+            You have {formatMoney(goalsAvailable)} available to allocate toward goals.
+          </div>
+          <button
+            onClick={() => setCreateGoalOpen(true)}
+            className="w-full rounded-xl bg-ios-blue px-4 py-2.5 text-center text-[15px] font-medium text-white active:opacity-70"
+          >
+            Create a Goal
+          </button>
         </div>
       )}
 
@@ -141,6 +215,15 @@ function SavingsPageContent() {
           </tbody>
         </table>
       </div>
+
+      <CreateGoalSheet
+        open={createGoalOpen}
+        onClose={() => setCreateGoalOpen(false)}
+        onSaved={() => {
+          refreshGoals();
+          setCreateGoalOpen(false);
+        }}
+      />
     </div>
   );
 }

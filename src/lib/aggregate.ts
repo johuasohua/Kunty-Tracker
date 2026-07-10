@@ -1590,6 +1590,29 @@ export function computeCashDeployment({
 }
 
 // ---------------------------------------------------------------------------
+// Goals — two-threshold waterfall model
+// ---------------------------------------------------------------------------
+
+export const CASH_DEPLOY_GOAL_THRESHOLD = 200000; // goals unlock above this balance
+
+/**
+ * Calculates how much cash is available to allocate toward goals.
+ * The waterfall model: 0–100k = buffer, 100k–200k = offset/invest, 200k+ = goals.
+ * Returns 0 if balance is below the goal threshold.
+ */
+export function computeGoalsAvailableCash(
+  savingsMonths: SavingsMonth[],
+  threshold = CASH_DEPLOY_GOAL_THRESHOLD
+): number {
+  const latest = savingsMonths[savingsMonths.length - 1];
+  if (!latest) return 0;
+
+  const cashBalance = latest.closingBalance;
+  const available = Math.max(0, cashBalance - threshold);
+  return available;
+}
+
+// ---------------------------------------------------------------------------
 // Filtered-result summary — totals + per-month trend for the transactions view
 // ---------------------------------------------------------------------------
 
