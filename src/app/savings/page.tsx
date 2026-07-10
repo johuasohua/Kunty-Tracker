@@ -56,6 +56,7 @@ function SavingsPageContent() {
     offsetBase: computeOffsetOptimizerBase(payments),
   });
   const goalsAvailable = computeGoalsAvailableCash(savingsMonths);
+  const latestBalance = savingsMonths[savingsMonths.length - 1]?.closingBalance ?? 0;
 
   return (
     <div className="px-4 md:px-0">
@@ -68,7 +69,7 @@ function SavingsPageContent() {
       )}
 
       {/* Goals Section */}
-      {goalsAvailable > 0 && goals.length > 0 && (
+      {goals.length > 0 && (
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-[17px] font-semibold text-ios-label">Goals</h2>
@@ -93,48 +94,58 @@ function SavingsPageContent() {
                     {formatMoney(goal.target_amount)}
                   </div>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-ios-fill">
-                  <div
-                    className="h-full bg-ios-green transition-all duration-300"
-                    style={{
-                      width: `${Math.min(100, (goalsAvailable / goal.target_amount) * 100)}%`,
-                    }}
-                  />
-                </div>
-                <div className="mt-2 text-[12px] text-ios-label-tertiary">
-                  {formatMoney(Math.min(goalsAvailable, goal.target_amount))} of {formatMoney(goal.target_amount)}
-                  {goal.target_date && (
-                    <span className="ml-2">
-                      • Target:{" "}
-                      {new Date(goal.target_date).toLocaleDateString("en-US", {
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                  )}
-                </div>
+                {goalsAvailable > 0 && (
+                  <>
+                    <div className="h-2 overflow-hidden rounded-full bg-ios-fill">
+                      <div
+                        className="h-full bg-ios-green transition-all duration-300"
+                        style={{
+                          width: `${Math.min(100, (goalsAvailable / goal.target_amount) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-2 text-[12px] text-ios-label-tertiary">
+                      {formatMoney(Math.min(goalsAvailable, goal.target_amount))} of {formatMoney(goal.target_amount)}
+                      {goal.target_date && (
+                        <span className="ml-2">
+                          • Target:{" "}
+                          {new Date(goal.target_date).toLocaleDateString("en-US", {
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+                {goalsAvailable === 0 && (
+                  <div className="mt-2 text-[12px] text-ios-label-tertiary">
+                    Progress paused — save above 200k to allocate surplus to goals
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {goals.length === 0 && goalsAvailable > 0 && (
-        <div className="mb-6 rounded-2xl bg-ios-bg-secondary p-4">
-          <div className="mb-3 text-[15px] font-medium text-ios-label">
-            Ready to fund some goals?
-          </div>
-          <div className="mb-3 text-[13px] text-ios-label-secondary">
-            You have {formatMoney(goalsAvailable)} available to allocate toward goals.
-          </div>
-          <button
-            onClick={() => setCreateGoalOpen(true)}
-            className="w-full rounded-xl bg-ios-blue px-4 py-2.5 text-center text-[15px] font-medium text-white active:opacity-70"
-          >
-            Create a Goal
-          </button>
+      {/* Add Goal prompt */}
+      <div className="mb-6 rounded-2xl bg-ios-bg-secondary p-4">
+        <div className="mb-3 text-[15px] font-medium text-ios-label">
+          {goals.length === 0 ? "Ready to fund some goals?" : "Add another goal"}
         </div>
-      )}
+        {goals.length === 0 && (
+          <div className="mb-3 text-[13px] text-ios-label-secondary">
+            Create goals to allocate your surplus savings. Once you accumulate more than 200k, progress will start tracking automatically.
+          </div>
+        )}
+        <button
+          onClick={() => setCreateGoalOpen(true)}
+          className="w-full rounded-xl bg-ios-blue px-4 py-2.5 text-center text-[15px] font-medium text-white active:opacity-70"
+        >
+          Create a Goal
+        </button>
+      </div>
 
       {/* Summary Cards */}
       <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
