@@ -85,9 +85,13 @@ export function VoiceReview({
     setError("");
     try {
       for (const d of drafts) {
+        const isForeign = d.currency !== "AED";
+        const aedAmount = isForeign
+          ? (d.amount as number) * (d.exchangeRate as number)
+          : (d.amount as number);
         await createTransaction({
           occurred_on: d.date,
-          amount: d.amount as number,
+          amount: aedAmount,
           category_id: d.categoryId as string,
           person_id: d.personId as string,
           payment_method: d.paymentMethod,
@@ -96,6 +100,9 @@ export function VoiceReview({
           source: "voice",
           raw_capture_text: d.rawText || null,
           created_by_person_id: createdByPersonId,
+          original_amount: isForeign ? d.amount : null,
+          original_currency: isForeign ? d.currency : null,
+          exchange_rate: isForeign ? d.exchangeRate : null,
         });
       }
       for (const b of budgets) {
@@ -341,7 +348,10 @@ function round2(n: number): number {
 }
 
 function isValidDraft(d: VoiceDraft): boolean {
-  return d.amount !== null && d.amount > 0 && !!d.categoryId && !!d.personId;
+  const currencyReady = d.currency === "AED" || (d.exchangeRate !== null && d.exchangeRate > 0);
+  return (
+    d.amount !== null && d.amount > 0 && !!d.categoryId && !!d.personId && currencyReady
+  );
 }
 
 function isValidBudget(b: BudgetCommand): boolean {

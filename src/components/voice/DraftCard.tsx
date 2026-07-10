@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { CategoryPicker } from "@/components/transactions/CategoryPicker";
+import { CURRENCY_OPTIONS, fetchAedRate } from "@/lib/currency";
+import { formatMoney } from "@/lib/format";
 import type { VoiceDraft } from "@/lib/voice/parse";
 import type { Category, PaymentMethod, Person } from "@/lib/types";
 
@@ -30,6 +32,41 @@ export function DraftCard({
   const [amountText, setAmountText] = useState(
     draft.amount != null ? String(draft.amount) : ""
   );
+
+  const [rateLoading, setRateLoading] = useState(false);
+  const [rateError, setRateError] = useState("");
+
+  // Fetch the AED rate whenever the currency is (or starts as, from parsing)
+  // non-AED. The rate lives on the draft itself via onChange so VoiceReview's
+  // save step can read it directly.
+  useEffect(() => {
+    if (draft.currency === "AED") {
+      setRateError("");
+      return;
+    }
+    let cancelled = false;
+    setRateLoading(true);
+    setRateError("");
+    fetchAedRate(draft.currency)
+      .then((r) => {
+        if (!cancelled) onChange({ exchangeRate: r });
+      })
+      .catch(() => {
+        if (!cancelled) setRateError("Couldn't fetch exchange rate — try again");
+      })
+      .finally(() => {
+        if (!cancelled) setRateLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.currency]);
+
+  const convertedAed =
+    draft.currency !== "AED" && draft.exchangeRate && draft.amount != null
+      ? draft.amount * draft.exchangeRate
+      : null;
 
   function setCategory(categoryId: string) {
     const category = categories.find((c) => c.id === categoryId);
@@ -64,9 +101,22 @@ export function DraftCard({
       {/* Amount + person */}
       <div className="mb-3 flex items-center gap-3">
         <div className="flex-1">
-          <label className="mb-1 block text-[12px] font-medium text-ios-label-secondary">
-            Amount (AED)
-          </label>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-[12px] font-medium text-ios-label-secondary">
+              Amount
+            </label>
+            <select
+              value={draft.currency}
+              onChange={(e) => onChange({ currency: e.target.value, exchangeRate: null })}
+              className="rounded-lg border border-ios-separator bg-ios-bg px-2 py-1 text-[11px] font-medium text-ios-label outline-none"
+            >
+              {CURRENCY_OPTIONS.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code}
+                </option>
+              ))}
+            </select>
+          </div>
           <input
             inputMode="decimal"
             value={amountText}
@@ -82,6 +132,17 @@ export function DraftCard({
               (missing.has("amount") ? "border-ios-red" : "border-ios-separator")
             }
           />
+          {draft.currency !== "AED" && (
+            <p className="mt-1 text-[11px] text-ios-label-secondary">
+              {rateLoading
+                ? "Fetching exchange rate…"
+                : rateError
+                  ? rateError
+                  : draft.exchangeRate && convertedAed !== null
+                    ? `≈ ${formatMoney(convertedAed)} at 1 ${draft.currency} = ${draft.exchangeRate.toFixed(4)} AED`
+                    : null}
+            </p>
+          )}
         </div>
         <div>
           <label className="mb-1 block text-[12px] font-medium text-ios-label-secondary">

@@ -8,7 +8,9 @@ import type { Category, PaymentMethod, Person, TransactionType } from "@/lib/typ
  */
 export interface VoiceDraft {
   id: string;
-  amount: number | null;
+  amount: number | null; // in `currency` units — AED unless a foreign currency was spoken
+  currency: string; // ISO code, e.g. "AED", "USD"
+  exchangeRate: number | null; // AED per 1 unit of `currency`; null until fetched, unused when currency is AED
   categoryId: string | null;
   personId: string | null;
   paymentMethod: PaymentMethod;
@@ -136,6 +138,33 @@ function extractAmount(text: string): number | null {
     return m[2] ? n * 1000 : n;
   }
   return null;
+}
+
+/** Spoken currency word → ISO code. "try" is deliberately omitted — it's a
+ * common English word ("try the new place"), too false-positive-prone to
+ * use as a Turkish Lira trigger; "lira" alone covers that case. */
+const CURRENCY_WORD_ALIASES: Record<string, string> = {
+  dollar: "USD", dollars: "USD", usd: "USD",
+  euro: "EUR", euros: "EUR", eur: "EUR",
+  pound: "GBP", pounds: "GBP", gbp: "GBP",
+  rupee: "INR", rupees: "INR", inr: "INR",
+  riyal: "SAR", riyals: "SAR", sar: "SAR",
+  baht: "THB", thb: "THB",
+  lira: "TRY",
+  rupiah: "IDR", idr: "IDR",
+  yen: "JPY", jpy: "JPY",
+  aud: "AUD",
+  cad: "CAD",
+  dirham: "AED", dirhams: "AED", aed: "AED", dhs: "AED",
+};
+
+/** First recognised currency word in the segment, defaulting to AED when
+ * none is spoken (the normal case). */
+function extractCurrency(text: string): string {
+  for (const [word, code] of Object.entries(CURRENCY_WORD_ALIASES)) {
+    if (new RegExp(`\\b${word}\\b`, "i").test(text)) return code;
+  }
+  return "AED";
 }
 
 // --- Word-number support ("forty-seven", "ten thousand", "one hundred and fifty") ---
@@ -325,7 +354,8 @@ function nextId(): string {
  */
 export interface ParsedTransaction {
   date: string | null; // "YYYY-MM-DD", or null when no date was spoken
-  amount: number; // signed: + = credit, - = debit
+  amount: number; // signed: + = credit, - = debit, in `currency` units
+  currency: string; // ISO code; "AED" unless a foreign currency was spoken
   person: string; // "Josh" | "Kiki"
   category: string; // resolved category name, e.g. "Taxi"
   note: string; // merchant details / extra context
@@ -345,6 +375,7 @@ function segmentToParsed(
   const text = ` ${segment.toLowerCase().trim()} `;
 
   const rawAmount = extractAmount(text) ?? 0;
+  const currency = extractCurrency(text);
   const category = extractCategory(text, ctx.categories);
   const person = extractPerson(text, ctx.people) ?? defaultPerson(ctx);
   const method = extractMethod(text) ?? ctx.defaultMethod;
@@ -353,6 +384,7 @@ function segmentToParsed(
   return {
     date: matchExplicitDate(text, now),
     amount: signed,
+    currency,
     person: person?.name ?? "",
     category: category?.name ?? "",
     note: buildNote(segment, category) ?? "",
@@ -410,6 +442,8 @@ export function parsedToDraft(
   return {
     id: nextId(),
     amount,
+    currency: parsed.currency,
+    exchangeRate: null,
     categoryId: category?.id ?? null,
     personId,
     paymentMethod: method,
@@ -434,7 +468,9 @@ export function parseSegment(segment: string, ctx: ParseContext): VoiceDraft {
 const NOTE_FILLER = new RegExp(
   "\\b(?:" +
     "spent|spend|paid|pay|cost|costs|bought|buy|for|on|of|the|a|an|" +
-    "credit|debit|cash|bank|card|dirhams?|aed|dollars?|" +
+    "credit|debit|cash|bank|card|dirhams?|aed|dhs|" +
+    "dollars?|usd|euros?|eur|pounds?|gbp|rupees?|inr|riyals?|sar|" +
+    "baht|thb|lira|rupiah|idr|yen|jpy|aud|cad|" +
     "yesterday|today|now|just|tomorrow|day before|ago|last|" +
     "sunday|monday|tuesday|wednesday|thursday|friday|saturday|days?|" +
     "transfer|transferred" +
@@ -644,6 +680,8 @@ export function templateDraft(
   return {
     id: nextId(),
     amount: null,
+    currency: "AED",
+    exchangeRate: null,
     categoryId: category?.id ?? null,
     personId: ctx.defaultPersonId,
     paymentMethod: ctx.defaultMethod,
