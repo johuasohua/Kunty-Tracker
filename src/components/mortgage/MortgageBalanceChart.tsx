@@ -25,15 +25,39 @@ export function MortgageBalanceChart({
   const offsetByMonth = new Map(
     (offsetSeries ?? []).map((p) => [p.periodMonth, p.closingBalance])
   );
+  const mortgageByMonth = new Map(
+    payments.map((p) => [
+      new Date(p.payment_date).toISOString().slice(0, 7), // YYYY-MM
+      p.closing_principal,
+    ])
+  );
 
-  const data = payments.map((p) => {
-    const mortgageBalance = p.closing_principal;
-    const paymentMonth = new Date(p.payment_date).toISOString().slice(0, 7); // YYYY-MM
-    const offsetBalance = offsetByMonth.get(paymentMonth) ?? 0;
+  // Union of every month either source has activity for — a month with a
+  // new offset deposit but no mortgage payment (or vice versa) still gets a
+  // point, instead of the timeline being gated by whichever source is
+  // sparser. Mortgage balance carries forward between payments since
+  // principal only changes when one is actually logged.
+  const months = Array.from(
+    new Set([...offsetByMonth.keys(), ...mortgageByMonth.keys()])
+  ).sort();
+
+  // Running mortgage balance per month, computed immutably (no reassignment
+  // across the scan) — carries forward from the prior month whenever that
+  // month itself has no logged payment.
+  const startingBalance = payments[0]?.opening_principal ?? 0;
+  const runningBalances = months.reduce<number[]>((acc, month, i) => {
+    const prevBalance = i === 0 ? startingBalance : acc[i - 1];
+    return [...acc, mortgageByMonth.get(month) ?? prevBalance];
+  }, []);
+
+  const data = months.map((month, i) => {
+    const mortgageBalance = runningBalances[i];
+    const offsetBalance = offsetByMonth.get(month) ?? 0;
     const effectiveDebt = Math.max(0, mortgageBalance - offsetBalance);
+    const [y, m] = month.split("-").map(Number);
 
     return {
-      name: new Date(p.payment_date).toLocaleDateString("en-GB", {
+      name: new Date(y, m - 1, 1).toLocaleDateString("en-GB", {
         month: "short",
         year: "2-digit",
       }),
