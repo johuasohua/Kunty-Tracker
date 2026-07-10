@@ -68,13 +68,6 @@ function SavingsPageContent() {
         </div>
       )}
 
-      {/* DEBUG: Show Goals section status */}
-      <div className="mb-4 rounded-lg border border-yellow-500 bg-yellow-50 p-3">
-        <div className="text-xs font-mono text-yellow-800">
-          Goals: loading={goalsLoading ? 'yes' : 'no'} count={goals.length} available={formatMoney(goalsAvailable)}
-        </div>
-      </div>
-
       {/* Add Goal prompt */}
       <div className="mb-6 rounded-2xl bg-ios-bg-secondary p-4">
         <div className="mb-3 text-[15px] font-medium text-ios-label">
