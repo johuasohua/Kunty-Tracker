@@ -11,7 +11,8 @@ import { useAuth } from "@/lib/auth-context";
 import { ChangePasswordSheet } from "@/components/settings/ChangePasswordSheet";
 
 export default function SettingsPage() {
-  const { people, activePerson, setActivePersonId } = useProfile();
+  const { people, activePerson, setActivePersonId, profileLocked } =
+    useProfile();
   const { session } = useAuth();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
@@ -34,18 +35,32 @@ export default function SettingsPage() {
         />
       </GroupedSection>
 
-      <GroupedSection title="Active Profile" footer="Tags every new entry until you switch.">
-        {people.map((p, i) => (
+      {profileLocked ? (
+        <GroupedSection
+          title="Your Profile"
+          footer="Auto-detected from your login — every entry you add is tagged to you."
+        >
           <ListRow
-            key={p.id}
-            label={p.name}
-            value={p.id === activePerson?.id ? "Active" : undefined}
-            valueClassName={p.id === activePerson?.id ? "text-ios-blue font-medium" : undefined}
-            onClick={() => setActivePersonId(p.id)}
-            last={i === people.length - 1}
+            label={activePerson?.name ?? "—"}
+            value="You"
+            valueClassName="text-ios-blue font-medium"
+            last
           />
-        ))}
-      </GroupedSection>
+        </GroupedSection>
+      ) : (
+        <GroupedSection title="Active Profile" footer="Tags every new entry until you switch.">
+          {people.map((p, i) => (
+            <ListRow
+              key={p.id}
+              label={p.name}
+              value={p.id === activePerson?.id ? "Active" : undefined}
+              valueClassName={p.id === activePerson?.id ? "text-ios-blue font-medium" : undefined}
+              onClick={() => setActivePersonId(p.id)}
+              last={i === people.length - 1}
+            />
+          ))}
+        </GroupedSection>
+      )}
 
       <GroupedSection
         title="Categories, Budgets & Recurring Bills"

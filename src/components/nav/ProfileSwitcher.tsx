@@ -9,10 +9,25 @@ function initials(name: string) {
 }
 
 export function ProfileSwitcher() {
-  const { people, activePerson, setActivePersonId } = useProfile();
+  const { people, activePerson, setActivePersonId, profileLocked } =
+    useProfile();
   const [open, setOpen] = useState(false);
 
   if (!activePerson) return null;
+
+  // Locked to the logged-in user — show their avatar, no switch menu.
+  if (profileLocked) {
+    return (
+      <div
+        className="flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-semibold text-white"
+        style={{ backgroundColor: activePerson.color }}
+        aria-label={`Signed in as ${activePerson.name}`}
+        title={activePerson.name}
+      >
+        {initials(activePerson.name)}
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
