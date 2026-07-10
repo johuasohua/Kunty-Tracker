@@ -1231,15 +1231,22 @@ function monthsToPayoff(
  *   monthlyRate ≈ interest_amount ÷ (opening_principal − offset_opening_balance)
  * read off the latest payment row. Returns null when there isn't enough data
  * to derive a sensible rate.
+ *
+ * `currentOffsetBalance` should be the live offset closing balance from
+ * `buildOffsetSeries` (the figure the Offset panel/history shows). When
+ * omitted it falls back to the mortgage row's stored offset_closing_balance,
+ * but that ignores offset deposits logged outside a mortgage payment, so the
+ * two would diverge — always pass the derived value from the Mortgage tab.
  */
 export function computeOffsetOptimizerBase(
-  payments: MortgagePayment[]
+  payments: MortgagePayment[],
+  currentOffsetBalance?: number
 ): OffsetOptimizerBase | null {
   const latest = payments[payments.length - 1];
   if (!latest) return null;
 
   const currentPrincipal = latest.closing_principal;
-  const currentOffset = latest.offset_closing_balance ?? 0;
+  const currentOffset = currentOffsetBalance ?? latest.offset_closing_balance ?? 0;
   if (currentPrincipal <= 0) return null;
 
   const rateBase = latest.opening_principal - (latest.offset_opening_balance ?? 0);

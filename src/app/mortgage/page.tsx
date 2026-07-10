@@ -102,7 +102,12 @@ export default function MortgagePage() {
           </div>
 
           <div className="mb-6">
-            <OffsetOptimizerCard payments={payments} />
+            <OffsetOptimizerCard
+              payments={payments}
+              currentOffsetBalance={
+                offsetSeries[offsetSeries.length - 1]?.closingBalance
+              }
+            />
           </div>
 
           <PaymentHistoryTable payments={payments} onChanged={refresh} />

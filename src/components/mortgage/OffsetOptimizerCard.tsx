@@ -28,10 +28,15 @@ function formatMonths(m: number): string {
 
 export function OffsetOptimizerCard({
   payments,
+  currentOffsetBalance,
 }: {
   payments: MortgagePayment[];
+  currentOffsetBalance?: number;
 }) {
-  const base = useMemo(() => computeOffsetOptimizerBase(payments), [payments]);
+  const base = useMemo(
+    () => computeOffsetOptimizerBase(payments, currentOffsetBalance),
+    [payments, currentOffsetBalance]
+  );
 
   // Cap the slider at the useful range — no point modelling more than the
   // remaining effective debt (nor a wildly large sum). Tidy to a round figure.
