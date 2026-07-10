@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { GroupedSection } from "@/components/ui/Card";
@@ -7,10 +8,12 @@ import { ListRow } from "@/components/ui/ListRow";
 import { useProfile } from "@/lib/profile-context";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { ChangePasswordSheet } from "@/components/settings/ChangePasswordSheet";
 
 export default function SettingsPage() {
   const { people, activePerson, setActivePersonId } = useProfile();
   const { session } = useAuth();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   async function handleSignOut() {
     const supabase = getSupabaseClient();
@@ -22,7 +25,13 @@ export default function SettingsPage() {
       <PageHeader title="Settings" />
 
       <GroupedSection title="Account">
-        <ListRow label="Signed in as" value={session?.user.email} last />
+        <ListRow label="Signed in as" value={session?.user.email} />
+        <ListRow
+          label="Change password"
+          chevron
+          last
+          onClick={() => setChangePasswordOpen(true)}
+        />
       </GroupedSection>
 
       <GroupedSection title="Active Profile" footer="Tags every new entry until you switch.">
@@ -60,6 +69,12 @@ export default function SettingsPage() {
       >
         Sign Out
       </button>
+
+      <ChangePasswordSheet
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+        email={session?.user.email}
+      />
     </div>
   );
 }
