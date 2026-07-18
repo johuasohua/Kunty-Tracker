@@ -90,7 +90,7 @@ export function PaymentHistoryTable({
                 </td>
                 <td className="px-3 py-2">
                   {editable && (
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                    <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100">
                       <button
                         onClick={() => setEditingPayment(p)}
                         className="flex h-7 w-7 items-center justify-center rounded-full bg-ios-fill text-ios-blue"
