@@ -181,7 +181,9 @@ export function TransactionTableRow({
         </div>
       </td>
       <td className="px-3 py-2 text-[13px] text-ios-label-secondary">
-        {person?.name ?? "—"}{" "}
+        <span className="font-medium" style={{ color: person?.color ?? undefined }}>
+          {person?.name ?? "—"}
+        </span>{" "}
         <span className="capitalize">({transaction.payment_method})</span>
       </td>
       <td className="max-w-[220px] truncate px-3 py-2 text-[13px] text-ios-label-secondary">

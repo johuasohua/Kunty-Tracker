@@ -39,6 +39,10 @@ export function TransactionMobileList({
             {dayTransactions.map((t, i) => {
               const category = categories.find((c) => c.id === t.category_id);
               const person = people.find((p) => p.id === t.person_id);
+              const loggedBy =
+                t.created_by_person_id && t.created_by_person_id !== t.person_id
+                  ? people.find((p) => p.id === t.created_by_person_id)
+                  : null;
               const isExpense = t.type === "expense" && category?.treat_as !== "offset";
               return (
                 <ListRow
@@ -53,11 +57,23 @@ export function TransactionMobileList({
                     />
                   }
                   label={category?.name ?? "Uncategorized"}
-                  subtitle={`${person?.name ?? "—"} · ${t.payment_method}${
-                    t.original_currency
-                      ? ` · ${t.original_amount} ${t.original_currency}`
-                      : ""
-                  }${t.note ? ` · ${t.note}` : ""}`}
+                  subtitle={
+                    <>
+                      <span
+                        className="font-medium"
+                        style={{ color: person?.color ?? undefined }}
+                      >
+                        {person?.name ?? "—"}
+                      </span>
+                      {` · ${t.payment_method}${
+                        t.original_currency
+                          ? ` · ${t.original_amount} ${t.original_currency}`
+                          : ""
+                      }${t.note ? ` · ${t.note}` : ""}${
+                        loggedBy ? ` · logged by ${loggedBy.name}` : ""
+                      }`}
+                    </>
+                  }
                   value={
                     <span className={isExpense ? "" : "text-ios-green"}>
                       {isExpense ? "-" : "+"}

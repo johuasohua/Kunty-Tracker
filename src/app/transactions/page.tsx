@@ -90,6 +90,7 @@ function TransactionsPageContent() {
   const filterActive =
     (filters.categoryIds?.length ?? 0) > 0 ||
     !!filters.personId ||
+    !!filters.loggedByPersonId ||
     !!filters.from ||
     !!filters.to ||
     !!filters.type ||
@@ -136,6 +137,7 @@ function TransactionsPageContent() {
   const activeFilterCount =
     (filters.categoryIds?.length ?? 0) +
     (filters.personId ? 1 : 0) +
+    (filters.loggedByPersonId ? 1 : 0) +
     (filters.paymentMethod ? 1 : 0) +
     (filters.type ? 1 : 0) +
     (filters.from ? 1 : 0) +

@@ -13,7 +13,8 @@ export interface TransactionFilters {
   from?: string; // yyyy-mm-dd, inclusive
   to?: string; // yyyy-mm-dd, inclusive
   categoryIds?: string[];
-  personId?: string;
+  personId?: string; // whose expense/card it is
+  loggedByPersonId?: string; // who was actually logged in when it was entered
   paymentMethod?: PaymentMethod;
   type?: TransactionType;
   sort?: "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
@@ -29,6 +30,7 @@ function applyFilters(query: any, filters: TransactionFilters) {
     q = q.in("category_id", filters.categoryIds);
   }
   if (filters.personId) q = q.eq("person_id", filters.personId);
+  if (filters.loggedByPersonId) q = q.eq("created_by_person_id", filters.loggedByPersonId);
   if (filters.paymentMethod) q = q.eq("payment_method", filters.paymentMethod);
   if (filters.type) q = q.eq("type", filters.type);
 

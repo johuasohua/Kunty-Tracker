@@ -151,6 +151,7 @@ export function LogTransactionSheet({
         note: offsetNote || null,
         payment_method: "debit",
         person_id: activePerson.id,
+        created_by_person_id: activePerson.id,
       });
       onSaved();
       onClose();

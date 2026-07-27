@@ -60,7 +60,7 @@ export function FilterSheet({
 
         <div>
           <label className="mb-1 block text-[13px] font-medium text-ios-label-secondary">
-            Person
+            Person (whose expense/card)
           </label>
           <div className="flex flex-wrap gap-2">
             {people.map((p) => (
@@ -83,6 +83,38 @@ export function FilterSheet({
               </button>
             ))}
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-[13px] font-medium text-ios-label-secondary">
+            Logged by
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {people.map((p) => (
+              <button
+                key={p.id}
+                onClick={() =>
+                  onChange({
+                    ...filters,
+                    loggedByPersonId:
+                      filters.loggedByPersonId === p.id ? undefined : p.id,
+                  })
+                }
+                className={clsx(
+                  "rounded-lg px-3 py-1.5 text-[14px] font-medium",
+                  filters.loggedByPersonId === p.id
+                    ? "bg-ios-blue text-white"
+                    : "bg-ios-fill text-ios-label"
+                )}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-[12px] text-ios-label-tertiary">
+            Who was actually logged in when the entry was created — only available
+            for entries logged since person auto-detection was added.
+          </p>
         </div>
 
         <div>
