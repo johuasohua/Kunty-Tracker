@@ -49,9 +49,6 @@ interface ProfileContextValue {
   people: Person[];
   activePerson: Person | null;
   setActivePersonId: (id: string) => void;
-  /** True when the active profile is auto-detected from the logged-in user
-   *  and locked to them (no manual switching). */
-  profileLocked: boolean;
   lastUsedMethod: PaymentMethod;
   setLastUsedMethod: (method: PaymentMethod) => void;
   loading: boolean;
@@ -85,34 +82,25 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const authUserId = session?.user.id ?? null;
   const storedActivePersonId = useLocalStorageValue(ACTIVE_PERSON_KEY);
 
-  // Auto-detect the profile from the logged-in user: the person whose
-  // auth_user_id matches the session is *their* profile, locked to them so
-  // Kiki is always Kiki and Josh is always Josh with no manual switching.
+  // The person whose auth_user_id matches the session is the sensible
+  // *default* — but auto-detection has proven unreliable on some devices
+  // (stale sessions, iOS PWA storage quirks), so it no longer hard-locks the
+  // profile. Both people can always switch manually; a stored manual choice
+  // takes priority over the auto-matched default once one exists.
   const matchedPerson = useMemo(() => {
     if (!authUserId) return null;
     return people.find((p) => p.auth_user_id === authUserId) ?? null;
   }, [people, authUserId]);
 
-  const profileLocked = matchedPerson !== null;
-
   const activePerson = useMemo(() => {
-    // Locked to the logged-in user when their account is linked to a person.
-    if (matchedPerson) return matchedPerson;
-    // Fallback (unlinked account): honour the manual localStorage choice.
     if (people.length === 0) return null;
-    return (
-      people.find((p) => p.id === storedActivePersonId) ?? people[0] ?? null
-    );
+    const stored = people.find((p) => p.id === storedActivePersonId);
+    return stored ?? matchedPerson ?? people[0] ?? null;
   }, [matchedPerson, people, storedActivePersonId]);
 
-  const setActivePersonId = useCallback(
-    (id: string) => {
-      // No-op while locked — the profile follows the logged-in user.
-      if (profileLocked) return;
-      writeLocalStorage(ACTIVE_PERSON_KEY, id);
-    },
-    [profileLocked]
-  );
+  const setActivePersonId = useCallback((id: string) => {
+    writeLocalStorage(ACTIVE_PERSON_KEY, id);
+  }, []);
 
   const lastMethodKey = activePerson
     ? `${LAST_METHOD_KEY_PREFIX}${activePerson.id}`
@@ -132,7 +120,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     people,
     activePerson,
     setActivePersonId,
-    profileLocked,
     lastUsedMethod,
     setLastUsedMethod,
     loading,

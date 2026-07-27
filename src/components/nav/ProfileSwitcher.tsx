@@ -9,23 +9,24 @@ function initials(name: string) {
 }
 
 export function ProfileSwitcher() {
-  const { people, activePerson, setActivePersonId, profileLocked } =
+  const { people, activePerson, setActivePersonId, loading, refreshPeople } =
     useProfile();
   const [open, setOpen] = useState(false);
 
-  if (!activePerson) return null;
-
-  // Locked to the logged-in user — show their avatar, no switch menu.
-  if (profileLocked) {
+  // Profiles failed to load (rather than just still loading) — show a
+  // visible retry instead of silently rendering nothing, so this is
+  // diagnosable instead of looking like "the app doesn't know who I am".
+  if (!activePerson) {
+    if (loading) return null;
     return (
-      <div
-        className="flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-semibold text-white"
-        style={{ backgroundColor: activePerson.color }}
-        aria-label={`Signed in as ${activePerson.name}`}
-        title={activePerson.name}
+      <button
+        onClick={() => refreshPeople()}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-ios-fill text-ios-red"
+        aria-label="Couldn't load profiles — tap to retry"
+        title="Couldn't load profiles — tap to retry"
       >
-        {initials(activePerson.name)}
-      </div>
+        !
+      </button>
     );
   }
 

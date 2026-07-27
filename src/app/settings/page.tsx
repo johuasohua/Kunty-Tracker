@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { ChangePasswordSheet } from "@/components/settings/ChangePasswordSheet";
 
 export default function SettingsPage() {
-  const { people, activePerson, setActivePersonId, profileLocked } =
+  const { people, activePerson, setActivePersonId, loading, refreshPeople } =
     useProfile();
   const { session } = useAuth();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -35,20 +35,18 @@ export default function SettingsPage() {
         />
       </GroupedSection>
 
-      {profileLocked ? (
+      {people.length === 0 && !loading ? (
         <GroupedSection
-          title="Your Profile"
-          footer="Auto-detected from your login — every entry you add is tagged to you."
+          title="Active Profile"
+          footer="Couldn't load profiles from the server. Tap to retry."
         >
-          <ListRow
-            label={activePerson?.name ?? "—"}
-            value="You"
-            valueClassName="text-ios-blue font-medium"
-            last
-          />
+          <ListRow label="Retry" chevron last onClick={() => refreshPeople()} />
         </GroupedSection>
       ) : (
-        <GroupedSection title="Active Profile" footer="Tags every new entry until you switch.">
+        <GroupedSection
+          title="Active Profile"
+          footer="Tags every new entry to whoever is picked here — switch any time."
+        >
           {people.map((p, i) => (
             <ListRow
               key={p.id}
