@@ -1632,8 +1632,8 @@ interface SummarizableTransaction {
 }
 
 export interface FilterSummary {
-  total: number; // signed: offset categories reduce the total, like spend elsewhere
-  count: number; // number of transactions counted
+  total: number; // spend only: income and transfers excluded, offsets subtracted
+  count: number; // number of spending transactions counted (excludes the above)
   months: Array<{ key: string; amount: number }>; // gap-free, oldest → newest
   monthsInRange: number;
   avgPerMonth: number;
@@ -1674,8 +1674,19 @@ function seriesTrend(months: Array<{ amount: number }>): "up" | "down" | "flat" 
 /**
  * Summarise an already-filtered set of transactions over a month range: total,
  * count, per-month series (gap-free across the range), average per month, and a
- * trend. Offset categories reduce the total, mirroring how "spend" is treated
- * across the app. Pure — the caller passes exactly the rows on screen.
+ * trend. Pure — the caller passes exactly the rows on screen.
+ *
+ * This is a *spending* summary, so it counts expense rows only:
+ *   - income is excluded — salary is not spend, and adding it swamped the
+ *     total (and inverted the trend) on any unfiltered/person-filtered view;
+ *   - "transfer" categories (offset / mortgage deposits) are excluded — that
+ *     money moves between own accounts, so subtracting it drove the total
+ *     negative and understated real spend;
+ *   - "offset" categories (e.g. Refunds) are genuine contra-expense and still
+ *     subtract, matching how spend is treated elsewhere.
+ * Note this deliberately differs from `isOffsetLike`, which lumps offset and
+ * transfer together for the cash-flow aggregates — both leave settlement cash,
+ * but only one of them is spending.
  */
 export function summarizeTransactions(
   transactions: SummarizableTransaction[],
@@ -1692,10 +1703,12 @@ export function summarizeTransactions(
   for (const t of transactions) {
     const key = monthKey(new Date(t.occurred_on));
     if (!bucket.has(key)) continue; // outside the range
-    let signed = t.amount;
-    if (t.type === "expense" && isOffsetLike(treatAs.get(t.category_id))) {
-      signed = -t.amount;
-    }
+
+    if (t.type !== "expense") continue; // income isn't spend
+    const kind = treatAs.get(t.category_id);
+    if (kind === "transfer") continue; // moved to an own account, not spent
+
+    const signed = kind === "offset" ? -t.amount : t.amount;
     bucket.set(key, (bucket.get(key) ?? 0) + signed);
     total += signed;
     count += 1;
