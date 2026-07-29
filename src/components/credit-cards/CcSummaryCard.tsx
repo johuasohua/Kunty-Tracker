@@ -44,7 +44,7 @@ export function CcSummaryCard({
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Carried Over" value={point.carryOver} />
-            <Stat label="This Month's Spend" value={point.currentSpend} />
+            <Stat label="Current Spend" value={point.currentSpend} />
             <Stat label="Paid Off" value={point.paidOff} tone="green" />
             <Stat label="Balance" value={point.closing} emphasize />
           </div>
