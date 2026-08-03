@@ -81,6 +81,57 @@ const WEEKDAYS = [
   "saturday",
 ];
 
+const MONTH_NAMES: Record<string, number> = {
+  jan: 0, january: 0,
+  feb: 1, february: 1,
+  mar: 2, march: 2,
+  apr: 3, april: 3,
+  may: 4,
+  jun: 5, june: 5,
+  jul: 6, july: 6,
+  aug: 7, august: 7,
+  sep: 8, sept: 8, september: 8,
+  oct: 9, october: 9,
+  nov: 10, november: 10,
+  dec: 11, december: 11,
+};
+const MONTH_PATTERN =
+  "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|" +
+  "aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+
+// Absolute-date phrase patterns, shared between matchExplicitDate (which reads
+// the day/month/year out of a match) and extractAmount (which just needs to
+// strip these spans so a bare day-of-month number — "21st July 100" — can't
+// be misread as the amount, the same way "3 days ago" is already stripped).
+const DAY_THEN_MONTH_SRC = `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_PATTERN})\\b,?\\s*(\\d{4})?`;
+const MONTH_THEN_DAY_SRC = `\\b(${MONTH_PATTERN})\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b,?\\s*(\\d{4})?`;
+const NUMERIC_DATE_SRC = "\\b(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?\\b";
+
+/**
+ * Build a date from day/month/optional year, defaulting a missing year to
+ * `now`'s year and rolling back one year if that lands in the future — this
+ * is an expense log, so "21st July" spoken in March means last July, not one
+ * five months from now. Returns null for an invalid day/month combination
+ * (e.g. "31st Feb") instead of letting JS Date silently roll it into the
+ * next month.
+ */
+function buildDateFromDayMonth(
+  day: number,
+  monthIdx: number,
+  explicitYear: number | undefined,
+  now: Date
+): string | null {
+  if (day < 1 || day > 31) return null;
+  let year = explicitYear ?? now.getFullYear();
+  let d = new Date(year, monthIdx, day);
+  if (d.getMonth() !== monthIdx) return null; // e.g. day 31 in a 30-day month
+  if (explicitYear === undefined && d.getTime() > now.getTime()) {
+    year -= 1;
+    d = new Date(year, monthIdx, day);
+  }
+  return toISO(d);
+}
+
 /**
  * Resolve an *explicitly spoken* date phrase to an ISO date, or null when the
  * utterance names no date. Per the parser rules, date is inferred only when
@@ -93,6 +144,46 @@ function matchExplicitDate(text: string, now: Date): string | null {
 
   const daysAgo = text.match(/\b(\d+)\s+days?\s+ago\b/);
   if (daysAgo) return toISO(addDays(now, -parseInt(daysAgo[1], 10)));
+
+  // Absolute calendar dates — "21st July", "on the 21st of July 2025",
+  // "July 21st", "21/07" (day-first, matching the app's DD.MM.YYYY convention).
+  const dayThenMonth = text.match(new RegExp(DAY_THEN_MONTH_SRC, "i"));
+  if (dayThenMonth) {
+    const monthIdx = MONTH_NAMES[dayThenMonth[2].toLowerCase()];
+    const resolved = buildDateFromDayMonth(
+      parseInt(dayThenMonth[1], 10),
+      monthIdx,
+      dayThenMonth[3] ? parseInt(dayThenMonth[3], 10) : undefined,
+      now
+    );
+    if (resolved) return resolved;
+  }
+
+  const monthThenDay = text.match(new RegExp(MONTH_THEN_DAY_SRC, "i"));
+  if (monthThenDay) {
+    const monthIdx = MONTH_NAMES[monthThenDay[1].toLowerCase()];
+    const resolved = buildDateFromDayMonth(
+      parseInt(monthThenDay[2], 10),
+      monthIdx,
+      monthThenDay[3] ? parseInt(monthThenDay[3], 10) : undefined,
+      now
+    );
+    if (resolved) return resolved;
+  }
+
+  // Numeric day/month, slash-separated only (not dot — a decimal amount like
+  // "47.50" would otherwise misparse as a date). Day-first per DD.MM.YYYY.
+  const numeric = text.match(new RegExp(NUMERIC_DATE_SRC));
+  if (numeric) {
+    const day = parseInt(numeric[1], 10);
+    const month = parseInt(numeric[2], 10);
+    if (month >= 1 && month <= 12) {
+      let explicitYear = numeric[3] ? parseInt(numeric[3], 10) : undefined;
+      if (explicitYear !== undefined && explicitYear < 100) explicitYear += 2000;
+      const resolved = buildDateFromDayMonth(day, month - 1, explicitYear, now);
+      if (resolved) return resolved;
+    }
+  }
 
   // "last monday" / "on tuesday" → most recent past occurrence of that weekday.
   const weekday = text.match(
@@ -114,12 +205,18 @@ function matchExplicitDate(text: string, now: Date): string | null {
  * currency word ("47 aed", "dhs 300"), a number after a spend verb ("paid
  * 3000", "for 250"), a k-suffixed shorthand ("10k"), then the first bare
  * number. Date phrases are stripped first so "3 days ago" can't be read as
- * an amount. Word numbers ("forty-seven") are handled upstream by
- * normalizeWordNumbers, which rewrites them to digits. */
+ * an amount — including absolute dates ("21st July", "21/07"), so the day
+ * number isn't mistaken for the amount when no amount keyword is spoken
+ * ("21st July taxi 100" would otherwise return 21, not 100). Word numbers
+ * ("forty-seven") are handled upstream by normalizeWordNumbers, which
+ * rewrites them to digits. */
 function extractAmount(text: string): number | null {
   const t = text
     .replace(/\b\d+\s+days?\s+ago\b/gi, " ")
-    .replace(/\bday before yesterday\b/gi, " ");
+    .replace(/\bday before yesterday\b/gi, " ")
+    .replace(new RegExp(DAY_THEN_MONTH_SRC, "gi"), " ")
+    .replace(new RegExp(MONTH_THEN_DAY_SRC, "gi"), " ")
+    .replace(new RegExp(NUMERIC_DATE_SRC, "g"), " ");
 
   const NUM = "(\\d[\\d,]*(?:\\.\\d+)?)\\s*(k)?";
   const strategies = [
@@ -473,6 +570,7 @@ const NOTE_FILLER = new RegExp(
     "baht|thb|lira|rupiah|idr|yen|jpy|aud|cad|" +
     "yesterday|today|now|just|tomorrow|day before|ago|last|" +
     "sunday|monday|tuesday|wednesday|thursday|friday|saturday|days?|" +
+    `${MONTH_PATTERN}|` +
     "transfer|transferred" +
     ")\\b",
   "ig"
@@ -493,6 +591,11 @@ function buildNote(
   category: Category | null
 ): string | null {
   let note = ` ${segment} `;
+  // Ordinal day-numbers ("21st") first — the digit and suffix are one
+  // contiguous run of word characters (no \b between "1" and "s"), so the
+  // plain digit-strip below can't match it and would leave the whole token
+  // ("21st") behind rather than just an "st" fragment.
+  note = note.replace(/\b\d{1,2}(?:st|nd|rd|th)\b/gi, " ");
   // Amounts (including "10k").
   note = note.replace(/\d[\d,]*(?:\.\d+)?\s*k?\b/gi, " ");
   // Category name + its aliases.
