@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { CategoryPicker } from "@/components/transactions/CategoryPicker";
 import { CURRENCY_OPTIONS, fetchAedRate } from "@/lib/currency";
+import { resolveCategoryHardRule } from "@/lib/categoryRules";
 import { formatMoney } from "@/lib/format";
 import type { VoiceDraft } from "@/lib/voice/parse";
 import type { Category, PaymentMethod, Person } from "@/lib/types";
@@ -26,6 +27,8 @@ export function DraftCard({
   onRemove: () => void;
 }) {
   const missing = new Set(draft.unresolved);
+  const category = categories.find((c) => c.id === draft.categoryId);
+  const hardRule = resolveCategoryHardRule(category?.name, people);
 
   // Keep the amount field as raw text so decimals ("47.50") type cleanly;
   // the numeric draft value is derived on change.
@@ -152,9 +155,11 @@ export function DraftCard({
             {people.map((p) => (
               <button
                 key={p.id}
+                disabled={!!hardRule}
                 onClick={() => onChange({ personId: p.id })}
                 className={
                   "rounded-lg px-3 py-2 text-[14px] font-medium " +
+                  (hardRule ? "opacity-50 " : "") +
                   (draft.personId === p.id
                     ? "bg-ios-blue text-white"
                     : "bg-ios-fill text-ios-label")
@@ -166,6 +171,12 @@ export function DraftCard({
           </div>
         </div>
       </div>
+      {hardRule && (
+        <p className="-mt-2 mb-3 text-[11px] text-ios-label-tertiary">
+          {category?.name} is always billed to {hardRule.personName}&apos;s{" "}
+          {hardRule.paymentMethod} card.
+        </p>
+      )}
 
       {/* Category */}
       <div className="mb-3">
@@ -209,6 +220,7 @@ export function DraftCard({
               { label: "Debit", value: "debit" },
             ]}
             value={draft.paymentMethod}
+            disabled={!!hardRule}
             onChange={(m: PaymentMethod) => onChange({ paymentMethod: m })}
           />
         </div>

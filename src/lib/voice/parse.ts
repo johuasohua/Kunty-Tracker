@@ -1,4 +1,5 @@
 import type { Category, PaymentMethod, Person, TransactionType } from "@/lib/types";
+import { resolveCategoryHardRule } from "@/lib/categoryRules";
 
 /**
  * A single parsed transaction ready for review. Every field is a best-effort
@@ -526,10 +527,19 @@ export function parsedToDraft(
     null;
 
   const amount = parsed.amount === 0 ? null : Math.abs(parsed.amount);
-  const method: PaymentMethod = parsed.type ?? (parsed.amount < 0 ? "debit" : "credit");
-  const personId = person?.id ?? ctx.defaultPersonId;
+  let method: PaymentMethod = parsed.type ?? (parsed.amount < 0 ? "debit" : "credit");
+  let personId = person?.id ?? ctx.defaultPersonId;
   const type: TransactionType =
     category?.treat_as === "income" ? "income" : "expense";
+
+  // Hard-pinned categories (e.g. Taxi -> Kiki's credit card) override whoever
+  // was spoken or defaulted — the household rule applies regardless of who's
+  // dictating.
+  const hardRule = resolveCategoryHardRule(category?.name, ctx.people);
+  if (hardRule) {
+    personId = hardRule.personId;
+    method = hardRule.paymentMethod;
+  }
 
   const unresolved: VoiceDraft["unresolved"] = [];
   if (amount === null || amount <= 0) unresolved.push("amount");
@@ -777,17 +787,20 @@ export function templateDraft(
     (c) => c.name.toLowerCase() === categoryName.toLowerCase()
   );
   const now = ctx.now ?? new Date();
+  const hardRule = resolveCategoryHardRule(category?.name, ctx.people);
+  const personId = hardRule?.personId ?? ctx.defaultPersonId;
+  const paymentMethod = hardRule?.paymentMethod ?? ctx.defaultMethod;
   const unresolved: VoiceDraft["unresolved"] = ["amount"];
   if (!category) unresolved.push("category");
-  if (!ctx.defaultPersonId) unresolved.push("person");
+  if (!personId) unresolved.push("person");
   return {
     id: nextId(),
     amount: null,
     currency: "AED",
     exchangeRate: null,
     categoryId: category?.id ?? null,
-    personId: ctx.defaultPersonId,
-    paymentMethod: ctx.defaultMethod,
+    personId,
+    paymentMethod,
     type: category?.treat_as === "income" ? "income" : "expense",
     date: todayISO(now),
     note: null,

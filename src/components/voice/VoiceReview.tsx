@@ -13,6 +13,7 @@ import {
 } from "@/lib/voice/parse";
 import { createTransaction } from "@/lib/queries/transactions";
 import { upsertBudgetByKey } from "@/lib/queries/budgets";
+import { resolveCategoryHardRule } from "@/lib/categoryRules";
 import { formatMoney } from "@/lib/format";
 import type { Category, Person } from "@/lib/types";
 
@@ -48,7 +49,22 @@ export function VoiceReview({
 
   function patch(id: string, p: Partial<VoiceDraft>) {
     setDrafts((prev) =>
-      prev.map((d) => (d.id === id ? recompute({ ...d, ...p }) : d))
+      prev.map((d) => {
+        if (d.id !== id) return d;
+        let merged = { ...d, ...p };
+        // Hard-pinned categories (e.g. Taxi -> Kiki's credit card) override
+        // any manual person/method change made during review.
+        const category = categories.find((c) => c.id === merged.categoryId);
+        const hardRule = resolveCategoryHardRule(category?.name, people);
+        if (hardRule) {
+          merged = {
+            ...merged,
+            personId: hardRule.personId,
+            paymentMethod: hardRule.paymentMethod,
+          };
+        }
+        return recompute(merged);
+      })
     );
   }
   function remove(id: string) {

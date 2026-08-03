@@ -5,6 +5,7 @@ import { Pencil, Trash2, Check, X } from "lucide-react";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { formatMoney } from "@/lib/format";
 import { updateTransaction, deleteTransaction } from "@/lib/queries/transactions";
+import { resolveCategoryHardRule } from "@/lib/categoryRules";
 import type { Category, PaymentMethod, Person, Transaction } from "@/lib/types";
 
 export function TransactionTableRow({
@@ -32,6 +33,11 @@ export function TransactionTableRow({
   const sign =
     category?.treat_as === "offset" || transaction.type === "income" ? 1 : -1;
 
+  const editingCategory = categories.find((c) => c.id === categoryId);
+  const hardRule = resolveCategoryHardRule(editingCategory?.name, people);
+  const effectivePersonId = hardRule?.personId ?? personId;
+  const effectiveMethod = hardRule?.paymentMethod ?? method;
+
   function cancel() {
     setDate(transaction.occurred_on);
     setAmount(String(transaction.amount));
@@ -52,8 +58,8 @@ export function TransactionTableRow({
         occurred_on: date,
         amount: parsedAmount,
         category_id: categoryId,
-        person_id: personId,
-        payment_method: method,
+        person_id: effectivePersonId,
+        payment_method: effectiveMethod,
         type: cat?.treat_as === "income" ? "income" : "expense",
         note: note || null,
       });
@@ -108,9 +114,10 @@ export function TransactionTableRow({
         <td className="px-3 py-2">
           <div className="flex gap-1">
             <select
-              value={personId}
+              value={effectivePersonId}
+              disabled={!!hardRule}
               onChange={(e) => setPersonId(e.target.value)}
-              className="w-full rounded-md border border-ios-separator bg-ios-bg-secondary px-2 py-1 text-[13px]"
+              className="w-full rounded-md border border-ios-separator bg-ios-bg-secondary px-2 py-1 text-[13px] disabled:opacity-50"
             >
               {people.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -119,14 +126,20 @@ export function TransactionTableRow({
               ))}
             </select>
             <select
-              value={method}
+              value={effectiveMethod}
+              disabled={!!hardRule}
               onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-              className="w-full rounded-md border border-ios-separator bg-ios-bg-secondary px-2 py-1 text-[13px]"
+              className="w-full rounded-md border border-ios-separator bg-ios-bg-secondary px-2 py-1 text-[13px] disabled:opacity-50"
             >
               <option value="credit">Credit</option>
               <option value="debit">Debit</option>
             </select>
           </div>
+          {hardRule && (
+            <p className="mt-1 text-[10px] text-ios-label-tertiary">
+              Locked: {hardRule.personName}&apos;s {hardRule.paymentMethod} card
+            </p>
+          )}
         </td>
         <td className="px-3 py-2">
           <input

@@ -8,6 +8,7 @@ import { useCategories } from "@/lib/queries/categories";
 import { useProfile } from "@/lib/profile-context";
 import { createTransaction } from "@/lib/queries/transactions";
 import { CURRENCY_OPTIONS, fetchAedRate } from "@/lib/currency";
+import { resolveCategoryHardRule } from "@/lib/categoryRules";
 import { formatMoney } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/types";
 
@@ -36,8 +37,10 @@ export function DesktopEntryForm({ onSaved }: { onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const effectivePersonId = personId ?? activePerson?.id ?? "";
   const selectedCategory = categories.find((c) => c.id === categoryId);
+  const hardRule = resolveCategoryHardRule(selectedCategory?.name, people);
+  const effectivePersonId = hardRule?.personId ?? personId ?? activePerson?.id ?? "";
+  const effectiveMethod = hardRule?.paymentMethod ?? method;
 
   useEffect(() => {
     if (currency === "AED") {
@@ -95,7 +98,7 @@ export function DesktopEntryForm({ onSaved }: { onSaved: () => void }) {
         amount: aedAmount,
         category_id: categoryId,
         person_id: effectivePersonId,
-        payment_method: method,
+        payment_method: effectiveMethod,
         type: selectedCategory.treat_as === "income" ? "income" : "expense",
         note: note || null,
         created_by_person_id: activePerson?.id ?? null,
@@ -203,8 +206,9 @@ export function DesktopEntryForm({ onSaved }: { onSaved: () => void }) {
           </label>
           <select
             value={effectivePersonId}
+            disabled={!!hardRule}
             onChange={(e) => setPersonId(e.target.value)}
-            className="w-full rounded-lg border border-ios-separator bg-ios-bg px-2.5 py-2 text-[14px] text-ios-label outline-none focus:border-ios-blue"
+            className="w-full rounded-lg border border-ios-separator bg-ios-bg px-2.5 py-2 text-[14px] text-ios-label outline-none focus:border-ios-blue disabled:opacity-50"
           >
             {people.map((p) => (
               <option key={p.id} value={p.id}>
@@ -224,10 +228,19 @@ export function DesktopEntryForm({ onSaved }: { onSaved: () => void }) {
               { label: "Credit", value: "credit" },
               { label: "Debit", value: "debit" },
             ]}
-            value={method}
+            value={effectiveMethod}
+            disabled={!!hardRule}
             onChange={setMethod}
           />
         </div>
+        {hardRule && (
+          <div className="col-span-2 sm:col-span-3 lg:col-span-6">
+            <p className="text-[12px] text-ios-label-tertiary">
+              {selectedCategory?.name} is always billed to {hardRule.personName}&apos;s{" "}
+              {hardRule.paymentMethod} card.
+            </p>
+          </div>
+        )}
 
         <div className="col-span-2 sm:col-span-3 lg:col-span-4">
           <label className="mb-1 block text-[12px] font-medium text-ios-label-secondary">

@@ -9,6 +9,7 @@ import { useCategories } from "@/lib/queries/categories";
 import { useProfile } from "@/lib/profile-context";
 import { updateTransaction, deleteTransaction } from "@/lib/queries/transactions";
 import { CURRENCY_OPTIONS, fetchAedRate } from "@/lib/currency";
+import { resolveCategoryHardRule } from "@/lib/categoryRules";
 import { formatMoney } from "@/lib/format";
 import type { PaymentMethod, Transaction } from "@/lib/types";
 
@@ -87,6 +88,9 @@ export function EditTransactionSheet({
   }, [currency, currencyTouched]);
 
   const selectedCategory = categories.find((c) => c.id === categoryId);
+  const hardRule = resolveCategoryHardRule(selectedCategory?.name, people);
+  const effectivePersonId = hardRule?.personId ?? personId;
+  const effectiveMethod = hardRule?.paymentMethod ?? method;
   const parsedAmount = parseFloat(amount) || 0;
   const convertedAed = currency !== "AED" && rate ? parsedAmount * rate : null;
 
@@ -110,8 +114,8 @@ export function EditTransactionSheet({
         occurred_on: date,
         amount: aedAmount,
         category_id: categoryId,
-        person_id: personId,
-        payment_method: method,
+        person_id: effectivePersonId,
+        payment_method: effectiveMethod,
         type: selectedCategory?.treat_as === "income" ? "income" : "expense",
         note: note || null,
         original_amount: currency === "AED" ? null : parsedAmount,
@@ -216,10 +220,12 @@ export function EditTransactionSheet({
             {people.map((p) => (
               <button
                 key={p.id}
+                disabled={!!hardRule}
                 onClick={() => setPersonId(p.id)}
                 className={
                   "rounded-lg px-3 py-1.5 text-[14px] font-medium " +
-                  (personId === p.id
+                  (hardRule ? "opacity-50 " : "") +
+                  (effectivePersonId === p.id
                     ? "bg-ios-blue text-white"
                     : "bg-ios-fill text-ios-label")
                 }
@@ -239,10 +245,17 @@ export function EditTransactionSheet({
               { label: "Credit", value: "credit" },
               { label: "Debit", value: "debit" },
             ]}
-            value={method}
+            value={effectiveMethod}
+            disabled={!!hardRule}
             onChange={setMethod}
           />
         </div>
+        {hardRule && (
+          <p className="text-[12px] text-ios-label-tertiary">
+            {selectedCategory?.name} is always billed to {hardRule.personName}&apos;s{" "}
+            {hardRule.paymentMethod} card.
+          </p>
+        )}
 
         <div>
           <label className="mb-1 block text-[13px] font-medium text-ios-label-secondary">
