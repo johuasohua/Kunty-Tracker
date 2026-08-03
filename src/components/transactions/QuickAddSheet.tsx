@@ -9,7 +9,6 @@ import { useCategories } from "@/lib/queries/categories";
 import { useProfile } from "@/lib/profile-context";
 import { createTransaction } from "@/lib/queries/transactions";
 import { CURRENCY_OPTIONS, fetchAedRate } from "@/lib/currency";
-import { resolveCategoryHardRule } from "@/lib/categoryRules";
 import { formatMoney } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/types";
 
@@ -47,10 +46,8 @@ export function QuickAddSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const effectivePersonId = personId ?? activePerson?.id ?? null;
   const selectedCategory = categories.find((c) => c.id === categoryId);
-  const hardRule = resolveCategoryHardRule(selectedCategory?.name, people);
-  const effectivePersonId = hardRule?.personId ?? personId ?? activePerson?.id ?? null;
-  const effectiveMethod = hardRule?.paymentMethod ?? method;
 
   // Fetch the AED rate whenever a foreign currency is picked — independent
   // of the amount, so it doesn't refetch on every keystroke.
@@ -123,7 +120,7 @@ export function QuickAddSheet({
         amount: aedAmount,
         category_id: categoryId,
         person_id: effectivePersonId,
-        payment_method: effectiveMethod,
+        payment_method: method,
         type: selectedCategory.treat_as === "income" ? "income" : "expense",
         note: note || null,
         created_by_person_id: activePerson?.id ?? null,
@@ -235,11 +232,9 @@ export function QuickAddSheet({
                 {people.map((p) => (
                   <button
                     key={p.id}
-                    disabled={!!hardRule}
                     onClick={() => setPersonId(p.id)}
                     className={
                       "rounded-lg px-3 py-1.5 text-[14px] font-medium " +
-                      (hardRule ? "opacity-50 " : "") +
                       (effectivePersonId === p.id
                         ? "bg-ios-blue text-white"
                         : "bg-ios-fill text-ios-label")
@@ -259,17 +254,10 @@ export function QuickAddSheet({
                   { label: "Credit", value: "credit" },
                   { label: "Debit", value: "debit" },
                 ]}
-                value={effectiveMethod}
-                disabled={!!hardRule}
+                value={method}
                 onChange={setMethod}
               />
             </div>
-            {hardRule && (
-              <p className="text-[12px] text-ios-label-tertiary">
-                {selectedCategory?.name} is always billed to {hardRule.personName}&apos;s{" "}
-                {hardRule.paymentMethod} card.
-              </p>
-            )}
           </div>
         )}
 

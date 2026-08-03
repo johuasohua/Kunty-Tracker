@@ -7,19 +7,16 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   className,
-  disabled = false,
 }: {
   options: { label: string; value: T }[];
   value: T;
   onChange: (value: T) => void;
   className?: string;
-  disabled?: boolean;
 }) {
   return (
     <div
       className={clsx(
         "inline-flex rounded-lg bg-ios-fill p-[2px]",
-        disabled && "opacity-50",
         className
       )}
       role="tablist"
@@ -29,7 +26,6 @@ export function SegmentedControl<T extends string>({
           key={opt.value}
           role="tab"
           aria-selected={opt.value === value}
-          disabled={disabled}
           onClick={() => onChange(opt.value)}
           className={clsx(
             "rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors",
