@@ -108,6 +108,13 @@ export interface OpeningCcBalance {
   balance: number;
 }
 
+/** Seed for the per-person account-balance derivation (see buildPersonAccountSeries). */
+export interface AccountOpeningBalance {
+  person_id: string;
+  as_of_date: string;
+  balance: number;
+}
+
 export interface CcStatement {
   id: string;
   person_id: string;

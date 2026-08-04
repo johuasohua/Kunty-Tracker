@@ -1,4 +1,5 @@
 import type {
+  AccountOpeningBalance,
   Budget,
   CcPayment,
   CcStatement,
@@ -892,6 +893,135 @@ export function buildOffsetSeries(input: {
   }
 
   return series;
+}
+
+// ---------------------------------------------------------------------------
+// Per-person account balance — the "master account logic": ties income, debit
+// spend, CC payoffs, and Offset deposits to one real running balance per
+// person, seeded from account_opening_balances. Previously nothing tied
+// these together — buildCcSeries only tracked card debt, buildOffsetSeries
+// was household-pooled, and no per-person cash balance existed anywhere.
+// ---------------------------------------------------------------------------
+
+export type AccountEventKind =
+  | "income"
+  | "debit_spend"
+  | "refund" // contra-expense (e.g. Refunds category) — adds back to balance
+  | "offset_deposit" // money moved to the Offset account — reduces balance
+  | "cc_payoff"; // credit card payment — reduces balance
+
+export interface AccountEvent {
+  date: string; // yyyy-mm-dd
+  kind: AccountEventKind;
+  amount: number; // always a positive magnitude; sign is implied by kind
+  categoryName?: string;
+  note?: string | null;
+}
+
+export interface PersonAccountPoint {
+  date: string;
+  runningBalance: number;
+  event: AccountEvent;
+}
+
+export interface PersonAccountSeries {
+  personId: string;
+  openingDate: string | null; // null when unseeded — caller should treat as "not ready"
+  openingBalance: number;
+  points: PersonAccountPoint[]; // one per event, chronological
+  currentBalance: number; // = openingBalance when there are no events yet
+}
+
+/**
+ * Person's account balance = opening (seeded) + income − debit spend −
+ * credit card payoffs − Offset deposits made by this person, each applied
+ * on its real date. Credit-card *spend* deliberately does not touch this
+ * balance — only the payoff does, mirroring how the money actually moves
+ * (spending on credit doesn't leave your account until you pay the card).
+ *
+ * Requires an account_opening_balances seed; returns an empty/unready series
+ * (currentBalance = 0, openingDate = null) when the person has none yet —
+ * callers should treat that as "not seeded" rather than "balance is zero".
+ */
+export function buildPersonAccountSeries(input: {
+  transactions: LightTransaction[];
+  ccPayments: CcPayment[];
+  categories: Category[];
+  personId: string;
+  openingSeed: AccountOpeningBalance | null;
+  offsetCategoryId: string | null | undefined;
+  endDate: Date;
+}): PersonAccountSeries {
+  const { transactions, ccPayments, categories, personId, openingSeed, offsetCategoryId, endDate } =
+    input;
+
+  if (!openingSeed) {
+    return { personId, openingDate: null, openingBalance: 0, points: [], currentBalance: 0 };
+  }
+
+  const treatAsMap = new Map<string, Category["treat_as"]>();
+  const nameMap = new Map<string, string>();
+  for (const c of categories) {
+    treatAsMap.set(c.id, c.treat_as);
+    nameMap.set(c.id, c.name);
+  }
+
+  const startISO = openingSeed.as_of_date;
+  const endISO = dateOnlyString(endDate);
+
+  const events: AccountEvent[] = [];
+
+  for (const t of transactions) {
+    if (t.person_id !== personId) continue;
+    if (t.occurred_on < startISO || t.occurred_on > endISO) continue;
+
+    const categoryName = nameMap.get(t.category_id);
+
+    if (t.type === "income") {
+      events.push({ date: t.occurred_on, kind: "income", amount: t.amount, categoryName });
+      continue;
+    }
+
+    // type === "expense" from here.
+    if (t.payment_method === "credit") continue; // settled later via cc_payoff, not here
+
+    if (offsetCategoryId && t.category_id === offsetCategoryId) {
+      events.push({ date: t.occurred_on, kind: "offset_deposit", amount: t.amount, categoryName });
+      continue;
+    }
+
+    const treatAs = treatAsMap.get(t.category_id);
+    if (treatAs === "offset") {
+      // Contra-expense (e.g. Refunds) — money coming back, adds to balance.
+      events.push({ date: t.occurred_on, kind: "refund", amount: t.amount, categoryName });
+      continue;
+    }
+
+    events.push({ date: t.occurred_on, kind: "debit_spend", amount: t.amount, categoryName });
+  }
+
+  for (const p of ccPayments) {
+    if (p.person_id !== personId) continue;
+    if (!p.payment_date || p.payment_date < startISO || p.payment_date > endISO) continue;
+    events.push({ date: p.payment_date, kind: "cc_payoff", amount: p.amount_paid, note: p.note });
+  }
+
+  events.sort((a, b) => a.date.localeCompare(b.date));
+
+  let running = openingSeed.balance;
+  const points: PersonAccountPoint[] = [];
+  for (const event of events) {
+    running += event.kind === "income" || event.kind === "refund" ? event.amount : -event.amount;
+    points.push({ date: event.date, runningBalance: running, event });
+  }
+
+  return {
+    personId,
+    openingDate: startISO,
+    openingBalance: openingSeed.balance,
+    points,
+    currentBalance: running,
+  };
 }
 
 export interface BudgetProgressRow {
