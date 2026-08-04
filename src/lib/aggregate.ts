@@ -783,6 +783,12 @@ export interface OffsetSeriesPoint {
   closingBalance: number;
   depositAmount: number;
   mortgageDeduction: number;
+  /** Who funded this month's deposits: person_id → amount. The offset account
+   * itself stays a shared pool (one mortgage, one offset balance) — this only
+   * records who contributed, so each person's account ledger can be
+   * reconciled against the same deposits. Empty for locked historical months,
+   * whose per-person split was never recorded. */
+  depositByPerson: Record<string, number>;
   transactionNote: string | null;
   locked: boolean; // true = stored ledger row (immutable history); false = derived
 }
@@ -824,17 +830,23 @@ export function buildOffsetSeries(input: {
     closingBalance: p.closing_balance,
     depositAmount: p.deposit_amount,
     mortgageDeduction: p.mortgage_deduction,
+    depositByPerson: {},
     transactionNote: p.transaction_note,
     locked: true,
   }));
 
-  // Deposits per month: Offset-category expense transactions.
+  // Deposits per month: Offset-category expense transactions, with a
+  // per-person breakdown alongside the household total.
   const depositsByMonth = new Map<string, number>();
+  const depositsByMonthByPerson = new Map<string, Record<string, number>>();
   if (input.offsetCategoryId) {
     for (const t of input.transactions) {
       if (t.category_id !== input.offsetCategoryId || t.type !== "expense") continue;
       const key = monthKey(new Date(t.occurred_on));
       depositsByMonth.set(key, (depositsByMonth.get(key) ?? 0) + t.amount);
+      const byPerson = depositsByMonthByPerson.get(key) ?? {};
+      byPerson[t.person_id] = (byPerson[t.person_id] ?? 0) + t.amount;
+      depositsByMonthByPerson.set(key, byPerson);
     }
   }
 
@@ -885,6 +897,7 @@ export function buildOffsetSeries(input: {
       closingBalance: closing,
       depositAmount: deposit,
       mortgageDeduction: deduction,
+      depositByPerson: depositsByMonthByPerson.get(key) ?? {},
       transactionNote: noteParts.length > 0 ? noteParts.join(" + ") : null,
       locked: false,
     });
@@ -1021,6 +1034,99 @@ export function buildPersonAccountSeries(input: {
     openingBalance: openingSeed.balance,
     points,
     currentBalance: running,
+  };
+}
+
+export interface HouseholdAccountSummary {
+  /** Per-person series, in the order the people were passed in. */
+  perPerson: PersonAccountSeries[];
+  /** Sum of every seeded person's currentBalance — the household cash total
+   *  derived FROM the person ledgers rather than computed separately. */
+  combinedBalance: number;
+  /** People with no account_opening_balances seed yet. While this is
+   *  non-empty, combinedBalance is incomplete — the UI must say so rather
+   *  than present it as the household total. */
+  unseededPersonIds: string[];
+  /** True only when every person has a seed. */
+  ready: boolean;
+}
+
+/**
+ * The household cash position, built as the SUM OF THE PERSON LEDGERS.
+ *
+ * This is the "interconnection": buildSavingsData computes a household
+ * balance independently, straight from raw transactions. That's a second,
+ * parallel computation of the same money — the two can silently drift.
+ * Deriving the household figure from the same per-person events means a
+ * disagreement is impossible by construction, and `reconcileAgainstSavings`
+ * turns any residual difference into a visible number instead of a
+ * mystery. Both are kept during transition rather than deleting the
+ * savings path outright, so the locked pre-July history stays intact.
+ */
+export function buildHouseholdAccountSummary(input: {
+  transactions: LightTransaction[];
+  ccPayments: CcPayment[];
+  categories: Category[];
+  people: Person[];
+  openingSeeds: AccountOpeningBalance[];
+  offsetCategoryId: string | null | undefined;
+  endDate: Date;
+}): HouseholdAccountSummary {
+  const perPerson = input.people.map((person) =>
+    buildPersonAccountSeries({
+      transactions: input.transactions,
+      ccPayments: input.ccPayments,
+      categories: input.categories,
+      personId: person.id,
+      openingSeed: input.openingSeeds.find((s) => s.person_id === person.id) ?? null,
+      offsetCategoryId: input.offsetCategoryId,
+      endDate: input.endDate,
+    })
+  );
+
+  const unseededPersonIds = perPerson
+    .filter((s) => s.openingDate === null)
+    .map((s) => s.personId);
+
+  const combinedBalance = perPerson
+    .filter((s) => s.openingDate !== null)
+    .reduce((sum, s) => sum + s.currentBalance, 0);
+
+  return {
+    perPerson,
+    combinedBalance,
+    unseededPersonIds,
+    ready: unseededPersonIds.length === 0,
+  };
+}
+
+export interface AccountSavingsReconciliation {
+  householdFromLedgers: number; // sum of person ledgers
+  householdFromSavings: number; // latest closing balance on the savings tab
+  difference: number; // ledgers − savings; 0 means they agree
+  agrees: boolean; // true when within a cent
+}
+
+/**
+ * Compares the two independent household figures. Any non-zero difference
+ * means the savings path and the person ledgers disagree — surface it
+ * rather than silently trusting either. Returns null when the ledgers
+ * aren't fully seeded yet (no meaningful comparison to make).
+ */
+export function reconcileAgainstSavings(
+  summary: HouseholdAccountSummary,
+  savingsMonths: SavingsMonth[]
+): AccountSavingsReconciliation | null {
+  if (!summary.ready) return null;
+  const latest = savingsMonths[savingsMonths.length - 1];
+  if (!latest) return null;
+
+  const difference = summary.combinedBalance - latest.closingBalance;
+  return {
+    householdFromLedgers: summary.combinedBalance,
+    householdFromSavings: latest.closingBalance,
+    difference,
+    agrees: Math.abs(difference) < 0.01,
   };
 }
 

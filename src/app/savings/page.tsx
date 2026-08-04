@@ -182,7 +182,10 @@ function SavingsPageContent() {
             </tr>
           </thead>
           <tbody>
-            {savingsMonths.map((month, idx) => (
+            {/* Newest month first. Reversed here at render time only —
+                savingsMonths itself must stay chronological for the running
+                opening/closing balance math and the summary cards above. */}
+            {[...savingsMonths].reverse().map((month, idx) => (
               <tr
                 key={month.key}
                 className={idx % 2 === 0 ? "bg-ios-bg" : undefined}
