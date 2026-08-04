@@ -653,6 +653,7 @@ export function buildCcSeries(
   statements?: CcStatement[]
 ): CcMonthPoint[] {
   const seed = openingBalances.find((b) => b.person_id === personId) ?? null;
+  const seedMonthKey = seed ? monthKey(new Date(seed.as_of_month)) : null;
   const personTransactions = transactions.filter((t) => t.person_id === personId);
 
   // Build category treat_as map to filter offset transactions
@@ -686,11 +687,41 @@ export function buildCcSeries(
     spendByMonth.set(key, bucket);
   }
 
+  // Bucket each payment by when it actually happened (payment_date), not by
+  // the calendar `month` field chosen at entry time — a payment made in July
+  // that clears the account should show as July's payoff, not June's. This
+  // doesn't change the cumulative running balance by any later month (moving
+  // a payment earlier or later in the chain nets the same total), but it
+  // makes "Paid Off" show up in the month it truly occurred, which matters
+  // once payments aren't tied to fixed statement cycles.
+  //
+  // Exception: skip the reassignment if EITHER side touches a month with a
+  // locked statement override — the payment's own month (a payment tagged
+  // to a locked month must keep offsetting it, or that frozen historical
+  // balance changes) or its payment_date's month (an unrelated payment
+  // whose payment_date happens to fall in a locked month must not get
+  // pulled into it and silently corrupt that frozen figure either).
+  //
+  // Also skip if the payment's own `month` falls before the opening-balance
+  // seed — that bucket is outside the loop below entirely (it starts at the
+  // seed), so under the old logic this payment was already invisible/never
+  // applied. Reassigning it by payment_date could resurrect it into a
+  // visible bucket, silently changing today's balance as a side effect of
+  // this fix. That's a real, separate bug (see NICE_TO_HAVE.md) — worth
+  // fixing deliberately, not accidentally here.
   const paidByMonth = new Map<string, number>();
   const paymentDateByMonth = new Map<string, string>();
   for (const p of ccPayments) {
     if (p.person_id !== personId) continue;
-    const key = monthKey(new Date(p.month));
+    const monthFieldKey = monthKey(new Date(p.month));
+    const paymentDateKey = p.payment_date ? monthKey(new Date(p.payment_date)) : monthFieldKey;
+    const withinSeedRange = seedMonthKey === null || monthFieldKey >= seedMonthKey;
+    const key =
+      withinSeedRange &&
+      !statementByMonth.has(monthFieldKey) &&
+      !statementByMonth.has(paymentDateKey)
+        ? paymentDateKey
+        : monthFieldKey;
     paidByMonth.set(key, (paidByMonth.get(key) ?? 0) + p.amount_paid);
     if (p.payment_date) {
       paymentDateByMonth.set(key, p.payment_date);
