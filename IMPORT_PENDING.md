@@ -49,6 +49,14 @@ item rather than plugged.
 - Kiki salary **45,000 on 2026-07-24** — absent from the sheet, which left
   her with zero July income. Confirmed by Josh.
 
+**Do not add Kiki's Jun 26 salary as July income.** Josh confirmed her
+139,829 Jul 1 opening balance already includes it. Only the Jul 24 salary
+is new money after the opening date. The sheet contains a Jun 26 45,000
+row, so this is a live double-counting risk at import: that row must be
+excluded (it falls before the Jul 1 seed date, so the ledger's own
+date filter already drops it — but the June-wipe step must not
+"helpfully" re-add it).
+
 ## Salary timing — resolved, no action needed
 
 Kiki is paid before month-end, Josh after month-start:
